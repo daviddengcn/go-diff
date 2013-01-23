@@ -151,6 +151,7 @@ type DiffFragment interface {
 type Fragment struct {
     tp int
     Parts []DiffFragment
+    lines []string
 }
 
 func (f *Fragment) Type() int {
@@ -220,13 +221,17 @@ func (f *Fragment) oneLine() string {
         return lines[0]
     } // if
     
-    return lines[0] + " ... " + lines[len(lines) - 1]
+    return lines[0] + " ... " + lines[len(lines) - 1] + fmt.Sprintf(" (%d lines)", len(lines))
 }
 
 func (f *Fragment) sourceLines(indent string) (lines []string) {
     if f == nil {
         return nil
     } // if
+    if f.lines != nil {
+        return f.lines
+    } // if
+    
     switch f.tp {
         case DF_TYPE:
             lines = append(lines, TYPE_NAMES[f.tp])
@@ -315,6 +320,8 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
                 lines = append(lines, p.sourceLines(indent + "    ")...)
             } // for p
     }
+    
+    //f.lines = lines
     return lines
 }
 
@@ -330,7 +337,7 @@ func (f *Fragment) calcDiff(that DiffFragment) int {
             } // if
             
             return ed.EditDistanceF(len(f.Parts), len(g.Parts), func(iA, iB int) int {
-                return f.Parts[iA].calcDiff(g.Parts[iB])
+                return f.Parts[iA].calcDiff(g.Parts[iB])*2
             }, func(iA int) int {
                 return f.Parts[iA].Weight()
             }, func(iB int) int {
@@ -829,7 +836,7 @@ func ShowDelLines(lines []string, gapLines int) {
             ShowDelLine(line)
         } // if
         if i == gapLines {
-            ShowDelWholeLine("    ...")
+            ShowDelWholeLine(fmt.Sprintf("    ... (%d lines)", len(lines) - gapLines*2))
         } // if
     } // for i
 }
@@ -876,7 +883,7 @@ func ShowInsLines(lines []string, gapLines int) {
             ShowInsLine(line)
         } // if
         if i == gapLines {
-            ShowInsWholeLine("    ...")
+            ShowInsWholeLine(fmt.Sprintf("    ... (%d lines)", len(lines) - gapLines*2))
         } // if
     } // for i
 }
@@ -887,21 +894,6 @@ const(
     rune_CAPITAL
     rune_LOWER
 )
-
-func runeType(r rune) int {
-    switch {
-        case r >= '0' && r <= '9':
-            return rune_NUM
-            
-        case r >= 'A' && r <= 'Z':
-            return rune_CAPITAL
-            
-        case r >= 'a' && r <= 'z':
-            return rune_LOWER
-    } // if
-
-    return rune_SINGLE
-}
 
 func newToken(last, cur int) bool {
     if last == rune_SINGLE || cur == rune_SINGLE {
@@ -923,6 +915,21 @@ func newToken(last, cur int) bool {
     return false
 }
 
+func runeType(r rune) int {
+    switch {
+        case r >= '0' && r <= '9':
+            return rune_NUM
+            
+        case r >= 'A' && r <= 'Z':
+            return rune_CAPITAL
+            
+        case r >= 'a' && r <= 'z':
+            return rune_LOWER
+    } // if
+
+    return rune_SINGLE
+}
+
 func lineToTokens(line string) (tokens []string) {
     lastTp := rune_SINGLE
     for _, c := range line {
@@ -938,11 +945,11 @@ func lineToTokens(line string) (tokens []string) {
     return tokens
 }
 
-func ShowDelTokens(tokens []string, mat []int) {
+func ShowDelTokens(del []string, mat []int) {
     ct.ChangeColor(del_COLOR, false, ct.None, false)
     fmt.Print("--- ")
     
-    for i, tk := range tokens {
+    for i, tk := range del {
         if mat[i] < 0 {
             ct.ChangeColor(del_COLOR, false, ct.None, false)
         } else {
@@ -956,11 +963,11 @@ func ShowDelTokens(tokens []string, mat []int) {
     fmt.Println()
 }
 
-func ShowInsTokens(tokens []string, mat []int) {
+func ShowInsTokens(ins []string, mat []int) {
     ct.ChangeColor(ins_COLOR, false, ct.None, false)
     fmt.Print("+++ ")
     
-    for i, tk := range tokens {
+    for i, tk := range ins {
         if mat[i] < 0 {
             ct.ChangeColor(ins_COLOR, false, ct.None, false)
         } else {
@@ -995,7 +1002,7 @@ func DiffLinesNoOrder(orgLines, newLines []string, format string) {
 	sort.Strings(newLines)
     
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		return diffOfStrings(orgLines[iA], newLines[iB], 2000)
+		return diffOfStrings(orgLines[iA], newLines[iB], 4000)
 	}, ed.ConstCost(1000), ed.ConstCost(1000))
     
     for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
@@ -1042,9 +1049,14 @@ func (lo *lineOutput) outputSame(line string) {
 func (lo *lineOutput) end() {
     if len(lo.sameLines) > 0 {
         fmt.Println("   ", lo.sameLines[0])
-        if len(lo.sameLines) > 2 {
-            fmt.Println("   ", "    ...")
-        }
+        if len(lo.sameLines) == 3 {
+            fmt.Println("   ", lo.sameLines[1])
+        } // if
+        if len(lo.sameLines) > 3 {
+            ct.ChangeColor(ct.Yellow, false, ct.None, false)
+            fmt.Printf("        ... (%d lines)\n", len(lo.sameLines) - 2)
+            ct.ResetColor()
+        } // if
         if len(lo.sameLines) > 1 {
             fmt.Println("   ", lo.sameLines[len(lo.sameLines) - 1])
         } // if
@@ -1100,10 +1112,7 @@ func DiffLines(orgLines, newLines []string, format string) {
 /*
    Diff Package
 */
-
-func DiffPackages(orgInfo, newInfo *FileInfo) {
-//	fmt.Println("===== PACKAGES")
-//	defer fmt.Println("      PACKAGES =====")
+func DiffPackage(orgInfo, newInfo *FileInfo) {
 	orgName := orgInfo.f.Name.String()
 	newName := newInfo.f.Name.String()
 	if orgName != newName {
@@ -1114,7 +1123,6 @@ func DiffPackages(orgInfo, newInfo *FileInfo) {
 /*
    Diff Imports
 */
-
 func extractImports(info *FileInfo) []string {
 	imports := make([]string, 0, len(info.f.Imports))
 	for _, imp := range info.f.Imports {
@@ -1140,30 +1148,22 @@ func DiffImports(orgInfo, newInfo *FileInfo) {
 /*
    Diff Types
 */
-
 func DiffTypes(orgInfo, newInfo *FileInfo) {
-//	fmt.Println("===== TYPES")
-//	defer fmt.Println("      TYPES =====")
-
-    //fmt.Println(strings.Join(orgInfo.types.sourceLines(""), "\n"))
-    //fmt.Println(strings.Join(newInfo.types.sourceLines(""), "\n"))
-
 	mat := MakeDiffMatrix(len(orgInfo.types.Parts), len(newInfo.types.Parts),
 		func(iA, iB int) int {
 			return orgInfo.types.Parts[iA].calcDiff(newInfo.types.Parts[iB])
 		})
-    //fmt.Println(mat.PrettyString())
+
 	_, rows, cols := GreedyMatch(mat, func(iA int) int {
         return orgInfo.types.Parts[iA].Weight()/2
     }, func(iB int) int {
         return newInfo.types.Parts[iB].Weight()/2
     })
 
-	//	fmt.Println(rows, cols)
 	for i := range rows {
 		j := rows[i]
 		if j < 0 {
-			ShowDelWholeLine("type " + orgInfo.types.Parts[i].(*Fragment).Parts[0].sourceLines("")[0] + " ...")
+            ShowDelWholeLine(orgInfo.types.Parts[i].oneLine())
 		} else {
 			if mat[i][j] > 0 {
                 orgInfo.types.Parts[i].showDiff(newInfo.types.Parts[j])
@@ -1173,7 +1173,7 @@ func DiffTypes(orgInfo, newInfo *FileInfo) {
 
 	for i, col := range cols {
 		if col < 0 {
-			ShowInsWholeLine("type " + newInfo.types.Parts[i].(*Fragment).Parts[0].sourceLines("")[0] + " ...")
+            ShowInsWholeLine(newInfo.types.Parts[i].oneLine())
 		} // if
 	} // for i
 }
@@ -1255,7 +1255,7 @@ func DiffFuncs(orgInfo, newInfo *FileInfo) {
 }
 
 func Diff(orgInfo, newInfo *FileInfo) {
-    DiffPackages(orgInfo, newInfo)
+    DiffPackage(orgInfo, newInfo)
     DiffImports(orgInfo, newInfo)
     DiffTypes(orgInfo, newInfo)
     DiffVars(orgInfo, newInfo)
@@ -1269,10 +1269,6 @@ func main() {
     } // if
     newFn := os.Args[1]
     orgFn := os.Args[2]
-//	orgFn := "godiff-new.gogo"
-//	newFn := "godiff.go"
-//    orgFn := `F:\job\go\src\ts\timsort.go`
-//    newFn := `F:\job\go\src\ts\timsortint.go`
     
 	fmt.Printf("Analyzing difference between %s and %s ...\n", orgFn, newFn)
 
@@ -1288,8 +1284,39 @@ func main() {
 		return
 	} // if
 
-	//    fmt.Println(orgInfo)
-	//    fmt.Println(newInfo)
-
 	Diff(orgInfo, newInfo)
 }
+
+// for testing
+
+type Fragment1 struct {
+    tp int
+    Parts []DiffFragment
+    lines []string
+}
+
+func Diff1(orgInfo, newInfo *FileInfo) {
+    DiffPackage(orgInfo, newInfo)
+    DiffImports(orgInfo, newInfo)
+    DiffTypes(orgInfo, newInfo)
+    DiffVars(orgInfo, newInfo)
+    DiffFuncs(orgInfo, newInfo)
+}
+
+const(
+    _DF_NONE = iota
+    _DF_TYPE
+    _DF_CONST
+    _DF_VAR
+    _DF_STRUCT
+    _DF_INTERFACE
+    _DF_FUNC
+    _DF_STAR
+    _DF_VAR_LINE
+    _DF_PAIR
+    _DF_NAMES
+    _DF_VALUES
+    _DF_BLOCK
+    _DF_RESULTS
+)
+
