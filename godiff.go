@@ -2,6 +2,7 @@ package main
 
 import (
     "github.com/daviddengcn/go-villa"
+    "github.com/daviddengcn/go-colortext"
     "bytes"
     "fmt"
     "github.com/daviddengcn/go-algs/ed"
@@ -11,7 +12,6 @@ import (
     "go/token"
     "sort"
     "strings"
-//    "log"
     "os"
 )
 
@@ -448,8 +448,6 @@ func newTypeStmtInfo(fs *token.FileSet, name string, def ast.Expr) *Fragment {
 }
 
 func newExpDef(fs *token.FileSet, def ast.Expr) DiffFragment {
-//    ast.Print(fs, def)
-    
 	var src bytes.Buffer
 	(&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(&src, fs, def)
 	return &StringFrag{weight: 100, source: src.String()}
@@ -785,13 +783,39 @@ func Parse(fn string) (*FileInfo, error) {
 	return info, nil
 }
 
+const(
+    del_COLOR = ct.Red
+    ins_COLOR = ct.Green
+)
+
 func ShowDelWholeLine(line string) {
+    ct.ChangeColor(del_COLOR, false, ct.None, false)
 	fmt.Println("===", line)
+    ct.ResetColor()
 }
 func ShowDelLine(line string) {
+    ct.ChangeColor(del_COLOR, false, ct.None, false)
 	fmt.Println("---", line)
+    ct.ResetColor()
 }
-
+func ShowColorDelLine(line, lcs string) {
+    ct.ChangeColor(del_COLOR, false, ct.None, false)
+    fmt.Print("--- ")
+    lcsr := []rune(lcs)
+    for _, c := range line {
+        if len(lcsr) > 0 && lcsr[0] == c {
+            ct.ResetColor()
+            lcsr = lcsr[1:]
+        } else {
+            ct.ChangeColor(del_COLOR, false, ct.None, false)
+        } // else
+        fmt.Printf("%c", c)
+    } // for c
+    
+    ct.ResetColor()
+    fmt.Println()
+}
+    
 func ShowDelLines(lines []string, gapLines int) {
     if len(lines) <= gapLines*2 + 1 {
         for _, line := range lines {
@@ -811,11 +835,32 @@ func ShowDelLines(lines []string, gapLines int) {
 }
 
 func ShowInsLine(line string) {
+    ct.ChangeColor(ins_COLOR, false, ct.None, false)
 	fmt.Println("+++", line)
+    ct.ResetColor()
+}
+func ShowColorInsLine(line, lcs string) {
+    ct.ChangeColor(ins_COLOR, false, ct.None, false)
+    fmt.Print("+++ ")
+    lcsr := []rune(lcs)
+    for _, c := range line {
+        if len(lcsr) > 0 && lcsr[0] == c {
+            ct.ResetColor()
+            lcsr = lcsr[1:]
+        } else {
+            ct.ChangeColor(ins_COLOR, false, ct.None, false)
+        } // else
+        fmt.Printf("%c", c)
+    } // for c
+    
+    ct.ResetColor()
+    fmt.Println()
 }
 
 func ShowInsWholeLine(line string) {
+    ct.ChangeColor(ins_COLOR, false, ct.None, false)
 	fmt.Println("###", line)
+    ct.ResetColor()
 }
 
 func ShowInsLines(lines []string, gapLines int) {
@@ -836,32 +881,139 @@ func ShowInsLines(lines []string, gapLines int) {
     } // for i
 }
 
-func ShowDiffLine(orgLine, newLine string) {
-	ShowDelLine(orgLine)
-	ShowInsLine(newLine)
+const(
+    rune_SINGLE = iota
+    rune_NUM
+    rune_CAPITAL
+    rune_LOWER
+)
+
+func runeType(r rune) int {
+    switch {
+        case r >= '0' && r <= '9':
+            return rune_NUM
+            
+        case r >= 'A' && r <= 'Z':
+            return rune_CAPITAL
+            
+        case r >= 'a' && r <= 'z':
+            return rune_LOWER
+    } // if
+
+    return rune_SINGLE
+}
+
+func newToken(last, cur int) bool {
+    if last == rune_SINGLE || cur == rune_SINGLE {
+        return true
+    } // if
+    
+    if last == cur {
+        return false
+    } // if
+    
+    if last == rune_NUM || cur == rune_NUM {
+        return true
+    } // if
+    
+    if last == rune_LOWER && cur == rune_CAPITAL {
+        return true
+    } // if
+    
+    return false
+}
+
+func lineToTokens(line string) (tokens []string) {
+    lastTp := rune_SINGLE
+    for _, c := range line {
+        tp := runeType(c)
+        if newToken(lastTp, tp) {
+            tokens = append(tokens, "")
+        } // if
+        tokens[len(tokens) - 1] = tokens[len(tokens) - 1] + string(c)
+        
+        lastTp = tp
+    } // for c
+    
+    return tokens
+}
+
+func ShowDelTokens(tokens []string, mat []int) {
+    ct.ChangeColor(del_COLOR, false, ct.None, false)
+    fmt.Print("--- ")
+    
+    for i, tk := range tokens {
+        if mat[i] < 0 {
+            ct.ChangeColor(del_COLOR, false, ct.None, false)
+        } else {
+            ct.ResetColor()
+        } // else
+        
+        fmt.Print(tk)
+    } // for i
+    
+    ct.ResetColor()
+    fmt.Println()
+}
+
+func ShowInsTokens(tokens []string, mat []int) {
+    ct.ChangeColor(ins_COLOR, false, ct.None, false)
+    fmt.Print("+++ ")
+    
+    for i, tk := range tokens {
+        if mat[i] < 0 {
+            ct.ChangeColor(ins_COLOR, false, ct.None, false)
+        } else {
+            ct.ResetColor()
+        } // else
+        
+        fmt.Print(tk)
+    } // for i
+    
+    ct.ResetColor()
+    fmt.Println()
+}
+
+func ShowDiffLine(del, ins string) {
+    delT, insT := lineToTokens(del), lineToTokens(ins)
+    
+	_, matA, matB := ed.EditDistanceFFull(len(delT), len(insT), func(iA, iB int) int {
+        if delT[iA] == insT[iB] {
+            return 0
+        } // if
+		return 3
+	}, ed.ConstCost(1), ed.ConstCost(1))
+    
+    //ShowColorDelLine(del, lcs)
+	//ShowColorInsLine(ins, lcs)
+    ShowDelTokens(delT, matA)
+    ShowInsTokens(insT, matB)
 }
 
 func DiffLinesNoOrder(orgLines, newLines []string, format string) {
 	sort.Strings(orgLines)
 	sort.Strings(newLines)
-
-	//fmt.Println(orgLines)
-	//fmt.Println(newLines)
-
-	for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
-		//fmt.Println(i, len(orgLines), j, len(newLines), orgLines[i], newLines[j])
-		switch {
-		case i >= len(orgLines), j < len(newLines) && orgLines[i] > newLines[j]:
-			fmt.Println("+++", fmt.Sprintf(format, newLines[j]))
-			j++
-		case j >= len(newLines), i < len(orgLines) && orgLines[i] < newLines[j]:
-			fmt.Println("---", fmt.Sprintf(format, orgLines[i]))
-			i++
-		case orgLines[i] == newLines[j]:
-			i++
-			j++
-		}
-	} // for i, j
+    
+	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
+		return diffOfStrings(orgLines[iA], newLines[iB], 2000)
+	}, ed.ConstCost(1000), ed.ConstCost(1000))
+    
+    for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
+        switch {
+            case j >= len(newLines) || i < len(orgLines) && matA[i] < 0:
+                ShowDelLine(fmt.Sprintf(format, orgLines[i]))
+            	i++
+            case i >= len(orgLines) || j < len(newLines) && matB[j] < 0:
+                ShowInsLine(fmt.Sprintf(format, newLines[j]))
+            	j++
+            default:
+            	if strings.TrimSpace(orgLines[i]) != strings.TrimSpace(newLines[j]) {
+                    ShowDiffLine(fmt.Sprintf(format, orgLines[i]), fmt.Sprintf(format, newLines[j]))
+            	} // if
+            	i++
+            	j++
+            }
+    } // for i, j
 }
 
 type lineOutput struct {
@@ -876,6 +1028,11 @@ func (lo *lineOutput) outputIns(line string) {
 func (lo *lineOutput) outputDel(line string) {
     lo.end()
     ShowDelLine(line)
+}
+
+func (lo *lineOutput) outputChange(del, ins string) {
+    lo.end()
+    ShowDiffLine(del, ins)
 }
 
 func (lo *lineOutput) outputSame(line string) {
@@ -896,13 +1053,21 @@ func (lo *lineOutput) end() {
     lo.sameLines = nil
 }
 
+func diffOfStrings(a, b string, mx int) int {
+	if a == b {
+		return 0
+	} // if
+	return ed.String(a, b) * mx / max(len(a), len(b))
+}
+
 func DiffLines(orgLines, newLines []string, format string) {
 	if len(orgLines)+len(newLines) == 0 {
 		return
 	} // if
+    
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		return diffOfStrings(orgLines[iA], newLines[iB], 2000)
-	}, ed.ConstCost(1000), ed.ConstCost(1000))
+		return diffOfStrings(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 2000)
+	}, ed.ConstCost(500), ed.ConstCost(500))
 	//fmt.Println(matA, matB)
 
 	//fmt.Println(orgLines)
@@ -921,10 +1086,9 @@ func DiffLines(orgLines, newLines []string, format string) {
             	j++
             default:
             	if strings.TrimSpace(orgLines[i]) != strings.TrimSpace(newLines[j]) {
-                    lo.outputDel(fmt.Sprintf(format, orgLines[i]))
-                    lo.outputIns(fmt.Sprintf(format, newLines[j]))
+                    lo.outputChange(fmt.Sprintf(format, orgLines[i]), fmt.Sprintf(format, newLines[j]))
             	} else {
-            		lo.outputSame(orgLines[i])
+            		lo.outputSame(fmt.Sprintf(format, orgLines[i]))
             	} // else
             	i++
             	j++
@@ -938,8 +1102,8 @@ func DiffLines(orgLines, newLines []string, format string) {
 */
 
 func DiffPackages(orgInfo, newInfo *FileInfo) {
-	fmt.Println("===== PACKAGES")
-	defer fmt.Println("      PACKAGES =====")
+//	fmt.Println("===== PACKAGES")
+//	defer fmt.Println("      PACKAGES =====")
 	orgName := orgInfo.f.Name.String()
 	newName := newInfo.f.Name.String()
 	if orgName != newName {
@@ -961,8 +1125,8 @@ func extractImports(info *FileInfo) []string {
 }
 
 func DiffImports(orgInfo, newInfo *FileInfo) {
-	fmt.Println("===== IMPORTS")
-	defer fmt.Println("      IMPORTS =====")
+//	fmt.Println("===== IMPORTS")
+//	defer fmt.Println("      IMPORTS =====")
 	orgImports := extractImports(orgInfo)
 	newImports := extractImports(newInfo)
 	//fmt.Println(orgImports)
@@ -977,16 +1141,9 @@ func DiffImports(orgInfo, newInfo *FileInfo) {
    Diff Types
 */
 
-func diffOfStrings(a, b string, mx int) int {
-	if a == b {
-		return 0
-	} // if
-	return ed.String(a, b) * mx / max(len(a), len(b))
-}
-
 func DiffTypes(orgInfo, newInfo *FileInfo) {
-	fmt.Println("===== TYPES")
-	defer fmt.Println("      TYPES =====")
+//	fmt.Println("===== TYPES")
+//	defer fmt.Println("      TYPES =====")
 
     //fmt.Println(strings.Join(orgInfo.types.sourceLines(""), "\n"))
     //fmt.Println(strings.Join(newInfo.types.sourceLines(""), "\n"))
@@ -1022,8 +1179,8 @@ func DiffTypes(orgInfo, newInfo *FileInfo) {
 }
 
 func DiffVars(orgInfo, newInfo *FileInfo) {
-	fmt.Println("===== VARS")
-	defer fmt.Println("      VARS =====")
+//	fmt.Println("===== VARS")
+//	defer fmt.Println("      VARS =====")
 
     //fmt.Println(strings.Join(orgInfo.vars.sourceLines(""), "\n"))
     //fmt.Println(strings.Join(newInfo.vars.sourceLines(""), "\n"))
@@ -1063,8 +1220,8 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
 }
 
 func DiffFuncs(orgInfo, newInfo *FileInfo) {
-	fmt.Println("===== FUNCS")
-	defer fmt.Println("      FUNCS =====")
+//	fmt.Println("===== FUNCS")
+//	defer fmt.Println("      FUNCS =====")
 	mat := MakeDiffMatrix(len(orgInfo.funcs.Parts), len(newInfo.funcs.Parts),
         func(iA, iB int) int {
 	    	return orgInfo.funcs.Parts[iA].calcDiff(newInfo.funcs.Parts[iB])
@@ -1106,19 +1263,17 @@ func Diff(orgInfo, newInfo *FileInfo) {
 }
 
 func main() {
-	orgFn := "godiff-new.gogo"
-	newFn := "godiff.go"
+    if len(os.Args) < 2 {
+        fmt.Println("Please specify the new/original files.")
+        return
+    } // if
+    newFn := os.Args[1]
+    orgFn := os.Args[2]
+//	orgFn := "godiff-new.gogo"
+//	newFn := "godiff.go"
 //    orgFn := `F:\job\go\src\ts\timsort.go`
 //    newFn := `F:\job\go\src\ts\timsortint.go`
     
-    if len(os.Args) > 1 {
-        orgFn = os.Args[1]
-    } // if
-    
-    if len(os.Args) > 2 {
-        newFn = os.Args[2]
-    } // if
-
 	fmt.Printf("Analyzing difference between %s and %s ...\n", orgFn, newFn)
 
 	orgInfo, err := Parse(orgFn)
@@ -1132,8 +1287,6 @@ func main() {
 		fmt.Println(err)
 		return
 	} // if
-    ;
-    ;
 
 	//    fmt.Println(orgInfo)
 	//    fmt.Println(newInfo)
