@@ -141,7 +141,10 @@ var TYPE_NAMES []string = []string {
 type DiffFragment interface {
     Type() int
     Weight() int
+    
+    // Max diff = this.Weight() + that.Weight()
     calcDiff(that DiffFragment) int
+    
     showDiff(that DiffFragment)
     // indent is the leading chars from the second line
     sourceLines(indent string) []string
@@ -167,6 +170,10 @@ func (f *Fragment) Weight() int {
     for _, p := range f.Parts {
         w += p.Weight()
     } // for p
+    switch f.Type() {
+        case DF_STAR:
+            w += 50
+    }
     return w
 }
 
@@ -332,12 +339,39 @@ func (f *Fragment) calcDiff(that DiffFragment) int {
     
     switch g := that.(type) {
         case *Fragment:
-            if g == nil || f.Type() != g.Type() {
+            if g == nil {
+                return f.Weight()
+            } // if
+        
+            switch (f.Type()) {
+                case DF_STAR:
+                    if g.Type() == DF_STAR {
+                        return f.Parts[0].calcDiff(g.Parts[0])
+                    } // if
+                    
+                    return f.Parts[0].calcDiff(g) + 50
+            }
+            
+            if g.Type() == DF_STAR {
+                return f.calcDiff(g.Parts[0]) + 50
+            } // if
+            
+            if f.Type() != g.Type() {
                 return f.Weight() + g.Weight()
             } // if
             
+            switch (f.Type()) {
+                case DF_FUNC:
+                    res := int(0)
+                    for i := 0; i < 5; i ++ {
+                        res += f.Parts[i].calcDiff(g.Parts[i])
+                    } // for i
+                    
+                    return res
+            }
+            
             return ed.EditDistanceF(len(f.Parts), len(g.Parts), func(iA, iB int) int {
-                return f.Parts[iA].calcDiff(g.Parts[iB])*2
+                return f.Parts[iA].calcDiff(g.Parts[iB])*3/2
             }, func(iA int) int {
                 return f.Parts[iA].Weight()
             }, func(iB int) int {
@@ -371,11 +405,12 @@ func (sf *StringFrag) Weight() int {
 func (sf *StringFrag) calcDiff(that DiffFragment) int {
     switch g := that.(type) {
         case *StringFrag:
-            if len(sf.source) + len(g.source) == 0 {
+            s1, s2 := strings.TrimSpace(sf.source), strings.TrimSpace(g.source)
+            if len(s1) + len(s2) == 0 {
                 return 0
             } // if
             wt := sf.weight + g.weight
-            return ed.String(sf.source, g.source)*wt/max(len(sf.source), len(g.source))
+            return ed.String(s1, s2)*wt/max(len(s1), len(s2))
     } // switch
     
     return sf.Weight() + that.Weight()
@@ -1078,7 +1113,7 @@ func DiffLines(orgLines, newLines []string, format string) {
 	} // if
     
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		return diffOfStrings(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 2000)
+		return diffOfStrings(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 1500)
 	}, ed.ConstCost(500), ed.ConstCost(500))
 	//fmt.Println(matA, matB)
 
@@ -1286,37 +1321,3 @@ func main() {
 
 	Diff(orgInfo, newInfo)
 }
-
-// for testing
-
-type Fragment1 struct {
-    tp int
-    Parts []DiffFragment
-    lines []string
-}
-
-func Diff1(orgInfo, newInfo *FileInfo) {
-    DiffPackage(orgInfo, newInfo)
-    DiffImports(orgInfo, newInfo)
-    DiffTypes(orgInfo, newInfo)
-    DiffVars(orgInfo, newInfo)
-    DiffFuncs(orgInfo, newInfo)
-}
-
-const(
-    _DF_NONE = iota
-    _DF_TYPE
-    _DF_CONST
-    _DF_VAR
-    _DF_STRUCT
-    _DF_INTERFACE
-    _DF_FUNC
-    _DF_STAR
-    _DF_VAR_LINE
-    _DF_PAIR
-    _DF_NAMES
-    _DF_VALUES
-    _DF_BLOCK
-    _DF_RESULTS
-)
-
