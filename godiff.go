@@ -13,6 +13,7 @@ import (
     "sort"
     "strings"
     "os"
+    "math"
 )
 
 func cat(a, sep, b string) string {
@@ -31,19 +32,15 @@ func max(a, b int) int {
 	return b
 }
 
-func MakeDiffMatrix(lenA, lenB int, diffF func(iA, iB int) int) villa.IntMatrix {
-    mat := villa.NewIntMatrix(lenA, lenB)
+func GreedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost func(int) int) (diffMat villa.IntMatrix, cost int, matA, matB []int) {
+    diffMat = villa.NewIntMatrix(lenA, lenB)
     
     for iA := 0; iA < lenA; iA ++ {
         for iB := 0; iB < lenB; iB ++ {
-            mat[iA][iB] = diffF(iA, iB)
+            diffMat[iA][iB] = diffF(iA, iB)
         } // for iB
     } // for iA
     
-    return mat
-}
-
-func GreedyMatch(diffMat villa.IntMatrix, delCost, insCost func(int) int) (cost int, matA, matB []int) {
     mat := diffMat.Clone()
     nRows, nCols := mat.Rows(), mat.Cols()
     // mx is a number greater or equal to all mat elements (need not be the exact maximum)
@@ -101,7 +98,7 @@ func GreedyMatch(diffMat villa.IntMatrix, delCost, insCost func(int) int) (cost 
         } // if
     } // for r
     
-    return cost, matA, matB
+    return diffMat, cost, matA, matB
 }
 
 
@@ -154,22 +151,29 @@ type DiffFragment interface {
 type Fragment struct {
     tp int
     Parts []DiffFragment
-    lines []string
 }
 
 func (f *Fragment) Type() int {
     return f.tp
 }
 
-func (f *Fragment) Weight() int {
+func (f *Fragment) Weight() (w int) {
     if f == nil {
-        return 0
+        return 10
     } // if
     
-    w := 0
-    for _, p := range f.Parts {
-        w += p.Weight()
-    } // for p
+    switch f.Type() {
+        case DF_FUNC:
+            for i := 0; i < 4; i ++ {
+                w += f.Parts[i].Weight()
+            } // for i
+            w += int(math.Sqrt(float64(f.Parts[4].Weight()) / 100.) * 100)
+        default:
+            for _, p := range f.Parts {
+                w += p.Weight()
+            } // for p
+    }
+    
     switch f.Type() {
         case DF_STAR:
             w += 50
@@ -234,9 +238,6 @@ func (f *Fragment) oneLine() string {
 func (f *Fragment) sourceLines(indent string) (lines []string) {
     if f == nil {
         return nil
-    } // if
-    if f.lines != nil {
-        return f.lines
     } // if
     
     switch f.tp {
@@ -333,14 +334,17 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
 }
 
 func (f *Fragment) calcDiff(that DiffFragment) int {
-    if f == nil {
-        return that.Weight()
-    } // if
-    
     switch g := that.(type) {
         case *Fragment:
+            if f == nil {
+                if g == nil {
+                    return 0
+                } else {
+                    return f.Weight() + g.Weight()
+                } // else
+            } // if
             if g == nil {
-                return f.Weight()
+                return f.Weight() + g.Weight()
             } // if
         
             switch (f.Type()) {
@@ -363,9 +367,11 @@ func (f *Fragment) calcDiff(that DiffFragment) int {
             switch (f.Type()) {
                 case DF_FUNC:
                     res := int(0)
-                    for i := 0; i < 5; i ++ {
+                    for i := 0; i < 4; i ++ {
                         res += f.Parts[i].calcDiff(g.Parts[i])
                     } // for i
+                    
+                    res += int(math.Sqrt(float64(f.Parts[4].calcDiff(g.Parts[4])) / 100.)*100)
                     
                     return res
             }
@@ -735,7 +741,7 @@ func newFuncDecl(fs *token.FileSet, d *ast.FuncDecl) (f* Fragment) {
     } // else
     
     // name
-    f.Parts = append(f.Parts, &StringFrag{weight: 100, source: fmt.Sprint(d.Name)})
+    f.Parts = append(f.Parts, &StringFrag{weight: 200, source: fmt.Sprint(d.Name)})
 
     //  params
     if d.Type.Params != nil {
@@ -1032,7 +1038,7 @@ func ShowDiffLine(del, ins string) {
     ShowInsTokens(insT, matB)
 }
 
-func DiffLinesNoOrder(orgLines, newLines []string, format string) {
+func DiffLineSet(orgLines, newLines []string, format string) {
 	sort.Strings(orgLines)
 	sort.Strings(newLines)
     
@@ -1135,7 +1141,7 @@ func DiffLines(orgLines, newLines []string, format string) {
             	if strings.TrimSpace(orgLines[i]) != strings.TrimSpace(newLines[j]) {
                     lo.outputChange(fmt.Sprintf(format, orgLines[i]), fmt.Sprintf(format, newLines[j]))
             	} else {
-            		lo.outputSame(fmt.Sprintf(format, orgLines[i]))
+            		lo.outputSame(fmt.Sprintf(format, newLines[j]))
             	} // else
             	i++
             	j++
@@ -1168,28 +1174,19 @@ func extractImports(info *FileInfo) []string {
 }
 
 func DiffImports(orgInfo, newInfo *FileInfo) {
-//	fmt.Println("===== IMPORTS")
-//	defer fmt.Println("      IMPORTS =====")
 	orgImports := extractImports(orgInfo)
 	newImports := extractImports(newInfo)
-	//fmt.Println(orgImports)
-	//fmt.Println(newImports)
 
-	DiffLinesNoOrder(orgImports, newImports, `import %s`)
-	//ast.Print(orgInfo.fs, orgInfo.f.Imports)
-	//ast.Print(newInfo.fs, newInfo.f.Imports)
+	DiffLineSet(orgImports, newImports, `import %s`)
 }
 
 /*
    Diff Types
 */
 func DiffTypes(orgInfo, newInfo *FileInfo) {
-	mat := MakeDiffMatrix(len(orgInfo.types.Parts), len(newInfo.types.Parts),
-		func(iA, iB int) int {
-			return orgInfo.types.Parts[iA].calcDiff(newInfo.types.Parts[iB])
-		})
-
-	_, rows, cols := GreedyMatch(mat, func(iA int) int {
+	mat, _, rows, cols := GreedyMatch(len(orgInfo.types.Parts), len(newInfo.types.Parts), func(iA, iB int) int {
+		return orgInfo.types.Parts[iA].calcDiff(newInfo.types.Parts[iB])
+	}, func(iA int) int {
         return orgInfo.types.Parts[iA].Weight()/2
     }, func(iB int) int {
         return newInfo.types.Parts[iB].Weight()/2
@@ -1220,12 +1217,9 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
     //fmt.Println(strings.Join(orgInfo.vars.sourceLines(""), "\n"))
     //fmt.Println(strings.Join(newInfo.vars.sourceLines(""), "\n"))
 
-	mat := MakeDiffMatrix(len(orgInfo.vars.Parts), len(newInfo.vars.Parts), func(iA, iB int) int {
+	mat, _, matA, matB := GreedyMatch(len(orgInfo.vars.Parts), len(newInfo.vars.Parts), func(iA, iB int) int {
 		return orgInfo.vars.Parts[iA].calcDiff(newInfo.vars.Parts[iB])
-	})
-    //fmt.Println(mat.PrettyString())
-
-	_, matA, matB := GreedyMatch(mat, func(iA int) int {
+	}, func(iA int) int {
         return orgInfo.vars.Parts[iA].Weight()/2
     }, func(iB int) int {
         return newInfo.vars.Parts[iB].Weight()/2
@@ -1255,22 +1249,14 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
 }
 
 func DiffFuncs(orgInfo, newInfo *FileInfo) {
-//	fmt.Println("===== FUNCS")
-//	defer fmt.Println("      FUNCS =====")
-	mat := MakeDiffMatrix(len(orgInfo.funcs.Parts), len(newInfo.funcs.Parts),
-        func(iA, iB int) int {
-	    	return orgInfo.funcs.Parts[iA].calcDiff(newInfo.funcs.Parts[iB])
-	    })
-    //fmt.Println(mat.PrettyString())
-
-	_, matA, matB := GreedyMatch(mat, func(iA int) int {
-        return orgInfo.funcs.Parts[iA].Weight()/2
+	mat, _, matA, matB := GreedyMatch(len(orgInfo.funcs.Parts), len(newInfo.funcs.Parts), func(iA, iB int) int {
+    	return orgInfo.funcs.Parts[iA].calcDiff(newInfo.funcs.Parts[iB]) * 3 / 2
+    }, func(iA int) int {
+        return orgInfo.funcs.Parts[iA].Weight()
     }, func(iB int) int {
-        return newInfo.funcs.Parts[iB].Weight()/2
+        return newInfo.funcs.Parts[iB].Weight()
     })
 
-	//	fmt.Println(matA, matB)
-	// ast.Print(newInfo.fs, newInfo.consts)
 	for i := range matA {
 		j := matA[i]
 		if j < 0 {
