@@ -33,70 +33,88 @@ func max(a, b int) int {
 }
 
 func GreedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost func(int) int) (diffMat villa.IntMatrix, cost int, matA, matB []int) {
+    matA, matB = make([]int, lenA), make([]int, lenB)
+    villa.IntSlice(matA).Fill(0, lenA, -1)
+    villa.IntSlice(matB).Fill(0, lenB, -1)
+    
     diffMat = villa.NewIntMatrix(lenA, lenB)
     
     for iA := 0; iA < lenA; iA ++ {
+        if matA[iA] >= 0 {
+            continue
+        } // if
         for iB := 0; iB < lenB; iB ++ {
-            diffMat[iA][iB] = diffF(iA, iB)
+            if matB[iB] >= 0 {
+                continue
+            } // if
+            
+            d := diffF(iA, iB);
+            diffMat[iA][iB] = d
+            
+            if d == 0 {
+                matA[iA], matB[iB] = iB, iA
+                break
+            } // if
         } // for iB
     } // for iA
     
     mat := diffMat.Clone()
-    nRows, nCols := mat.Rows(), mat.Cols()
     // mx is a number greater or equal to all mat elements (need not be the exact maximum)
     mx := 0
-    for r := range mat {
-        for c := 0; c < nCols; c ++ {
-            mat[r][c] -= delCost(r) + insCost(c)
-            if mat[r][c] > mx {
-                mx = mat[r][c]
+    for iA := range mat {
+        if matA[iA] >= 0 {
+            continue
+        } // if
+        for iB := 0; iB < lenB; iB ++ {
+            if matB[iB] >= 0 {
+                continue
+            } // if
+            mat[iA][iB] -= delCost(iA) + insCost(iB)
+            if mat[iA][iB] > mx {
+                mx = mat[iA][iB]
             } // if
         } // for c
     } // for r
     
-    matA, matB = make([]int, nRows), make([]int, nCols)
-    villa.IntSlice(matA).Fill(0, nRows, -1)
-    villa.IntSlice(matB).Fill(0, nCols, -1)
-    
     for {
         mn := mx + 1
-        selR, selC := -1, -1
-        for r := range mat {
-            if matA[r] >= 0 {
+        selA, selB := -1, -1
+        for iA := range mat {
+            if matA[iA] >= 0 {
                 continue
             } // if
-            for c := 0; c < nCols; c ++ {
-                if matB[c] >= 0 {
+            for iB := 0; iB < lenB; iB ++ {
+                if matB[iB] >= 0 {
                     continue
                 } // if
                 
-                if mat[r][c] < mn {
-                    mn = mat[r][c]
-                    selR, selC = r, c
+                if mat[iA][iB] < mn {
+                    mn = mat[iA][iB]
+                    selA, selB = iA, iB
                 } // if
-            } // for c
-        } // for r
+            } // for iB
+        } // for iA
         
-        if selR < 0 || mn >= 0 {
+        if selA < 0 || mn >= 0 {
             break
         } // if
         
-        matA[selR] = selC
-        matB[selC] = selR
+        matA[selA] = selA
+        matB[selB] = selB
     } // for
     
-    for c := range(matA) {
-        if matA[c] < 0 {
-            cost += delCost(c)
+    for iA := range(matA) {
+        if matA[iA] < 0 {
+            cost += delCost(iA)
         } else {
-            cost += diffMat[c][matA[c]]
+            cost += diffMat[iA][matA[iA]]
         } // else
-    } // for c
-    for r := range(matB) {
-        if matB[r] < 0 {
-            cost += insCost(r)
+    } // for iA
+    for iB := range(matB) {
+        if matB[iB] < 0 {
+            cost += insCost(iB)
         } // if
-    } // for r
+    } // for iB
     
     return diffMat, cost, matA, matB
 }
