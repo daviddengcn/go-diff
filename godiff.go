@@ -99,8 +99,8 @@ func GreedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost fu
             break
         } // if
         
-        matA[selA] = selA
-        matB[selB] = selB
+        matA[selA] = selB
+        matB[selB] = selA
     } // for
     
     for iA := range(matA) {
@@ -1128,7 +1128,24 @@ func diffOfStrings(a, b string, mx int) int {
 	if a == b {
 		return 0
 	} // if
-	return ed.String(a, b) * mx / max(len(a), len(b))
+    return ed.String(a, b) * mx / max(len(a), len(b))
+}
+
+func diffOfSourceLine(a, b string, mx int) int {
+	if a == b {
+		return 0
+	} // if
+    
+    delT, insT := lineToTokens(a), lineToTokens(b)
+    
+	diff := ed.EditDistanceF(len(delT), len(insT), func(iA, iB int) int {
+        if delT[iA] == insT[iB] {
+            return 0
+        } // if
+		return 3
+	}, ed.ConstCost(1), ed.ConstCost(1))
+    
+    return diff * mx / (len(delT) + len(insT))
 }
 
 func DiffLines(orgLines, newLines []string, format string) {
@@ -1137,7 +1154,8 @@ func DiffLines(orgLines, newLines []string, format string) {
 	} // if
     
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		return diffOfStrings(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 1500)
+		return diffOfSourceLine(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 1500)
+        //return diffOfStrings(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 1500)
 	}, ed.ConstCost(500), ed.ConstCost(500))
 	//fmt.Println(matA, matB)
 
@@ -1302,8 +1320,8 @@ func Diff(orgInfo, newInfo *FileInfo) {
 }
 
 func main() {
-    if len(os.Args) < 2 {
-        fmt.Println("Please specify the new/original files.")
+    if len(os.Args) < 3 {
+        fmt.Println("Please specify the new/original files.", os.Args)
         return
     } // if
     newFn := os.Args[1]
