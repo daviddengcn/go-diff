@@ -1047,11 +1047,19 @@ func ShowDiffLine(del, ins string) {
         if delT[iA] == insT[iB] {
             return 0
         } // if
-		return 3
-	}, ed.ConstCost(1), ed.ConstCost(1))
+        return len(delT[iA]) + len(insT[iB]) + 1
+	}, func(iA int) int {
+        if delT[iA] == " " {
+            return 0
+        } // if
+            return len(delT[iA])
+        }, func(iB int) int {
+        if insT[iB] == " " {
+            return 0
+        } // if
+        return len(insT[iB])
+    })
     
-    //ShowColorDelLine(del, lcs)
-	//ShowColorInsLine(ins, lcs)
     ShowDelTokens(delT, matA)
     ShowInsTokens(insT, matB)
 }
