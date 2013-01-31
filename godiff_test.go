@@ -3,6 +3,7 @@ package main
 import(
     "testing"
     "github.com/daviddengcn/go-algs/ed"
+    "github.com/daviddengcn/go-villa"
     "fmt"
 )
 
@@ -32,4 +33,18 @@ func TestDiffLine(t *testing.T) {
 }
 
 func TestGreedyMatch(t *testing.T) {
+    _, _, matA, matB := GreedyMatch(2, 2, func(iA, iB int) int {
+        if iA == 1 && iB == 0 {
+            return 1
+        } // if
+        
+        return 40
+    }, ed.ConstCost(10), ed.ConstCost(10))
+    
+    if !villa.IntSlice(matA).Equals([]int{-1, 0}) {
+        t.Errorf("matA should be [-1, 0]")
+    } // if
+    if !villa.IntSlice(matB).Equals([]int{1, -1}) {
+        t.Errorf("matA should be [1, -1]")
+    } // if
 }

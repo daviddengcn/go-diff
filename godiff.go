@@ -1163,17 +1163,10 @@ func DiffLines(orgLines, newLines []string, format string) {
     
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
 		return diffOfSourceLine(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 1500)
-        //return diffOfStrings(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 1500)
 	}, ed.ConstCost(500), ed.ConstCost(500))
-	//fmt.Println(matA, matB)
-
-	//fmt.Println(orgLines)
-	//fmt.Println(newLines)
-
     var lo lineOutput
 
     for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
-        //fmt.Println(i, len(orgLines), j, len(newLines), orgLines[i], newLines[j])
         switch {
             case j >= len(newLines) || i < len(orgLines) && matA[i] < 0:
                 lo.outputDel(fmt.Sprintf(format, orgLines[i]))
