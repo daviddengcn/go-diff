@@ -1004,12 +1004,12 @@ func lineToTokens(line string) (tokens []string) {
     return tokens
 }
 
-func ShowDelTokens(del []string, mat []int) {
+func ShowDelTokens(del []string, mat []int, ins []string) {
     ct.ChangeColor(del_COLOR, false, ct.None, false)
     fmt.Print("--- ")
     
     for i, tk := range del {
-        if mat[i] < 0 {
+        if mat[i] < 0 || tk != ins[mat[i]] {
             ct.ChangeColor(del_COLOR, false, ct.None, false)
         } else {
             ct.ResetColor()
@@ -1022,12 +1022,12 @@ func ShowDelTokens(del []string, mat []int) {
     fmt.Println()
 }
 
-func ShowInsTokens(ins []string, mat []int) {
+func ShowInsTokens(ins []string, mat []int, del []string) {
     ct.ChangeColor(ins_COLOR, false, ct.None, false)
     fmt.Print("+++ ")
     
     for i, tk := range ins {
-        if mat[i] < 0 {
+        if mat[i] < 0 || tk != del[mat[i]] {
             ct.ChangeColor(ins_COLOR, false, ct.None, false)
         } else {
             ct.ResetColor()
@@ -1040,12 +1040,95 @@ func ShowInsTokens(ins []string, mat []int) {
     fmt.Println()
 }
 
+func pareOrder(tks []string) (order []int) {
+    order = make([]int, len(tks))
+    c0, c1, c2, c3, c4 := 0, 0, 0, 0, 0
+    for i := range tks {
+        switch tks[i] {
+            case "[":
+                c0 ++
+                order[i] = c0
+            case "]":
+                order[i] = c0
+                c0 --
+                
+            case "{":
+                c1 ++
+                order[i] = c1
+            case "}":
+                order[i] = c1
+                c1 --
+                
+            case "(":
+                c2 ++
+                order[i] = c2
+            case ")":
+                order[i] = c2
+                c2 --
+                
+            case `"`:
+                order[i] = c3
+                c3 = 1-c3
+                
+            case "'":
+                order[i] = c4
+                c4 = 1-c4
+        }
+    } // for i
+    
+    c0, c1, c2 = 0, 0, 0
+    
+    for i := len(tks) - 1; i >= 0; i -- {
+        switch tks[i] {
+            case "]":
+                c0 ++
+                if c0 < order[i] {
+                    order[i] = -c0
+                } // if
+            case "[":
+                if c0 < order[i] {
+                    order[i] = -c0
+                } // if
+                c0 --
+                
+            case "}":
+                c1 ++
+                if c1 < order[i] {
+                    order[i] = -c1
+                } // if
+            case "{":
+                if c1 < order[i] {
+                    order[i] = -c1
+                } // if
+                c1 --
+                
+            case ")":
+                c2 ++
+                if c2 < order[i] {
+                    order[i] = -c2
+                } // if
+            case "(":
+                if c2 < order[i] {
+                    order[i] = -c2
+                } // if
+                c2 --
+        }
+    } // for i
+    
+    return order
+}
+
 func ShowDiffLine(del, ins string) {
     delT, insT := lineToTokens(del), lineToTokens(ins)
+    delO, insO := pareOrder(delT), pareOrder(insT)
     
 	_, matA, matB := ed.EditDistanceFFull(len(delT), len(insT), func(iA, iB int) int {
         if delT[iA] == insT[iB] {
-            return 0
+            if delO[iA] == insO[iB] {
+                return 0
+            } else {
+                return 1
+            }
         } // if
         return len(delT[iA]) + len(insT[iB]) + 1
 	}, func(iA int) int {
@@ -1060,8 +1143,8 @@ func ShowDiffLine(del, ins string) {
         return len(insT[iB])
     })
     
-    ShowDelTokens(delT, matA)
-    ShowInsTokens(insT, matB)
+    ShowDelTokens(delT, matA, insT)
+    ShowInsTokens(insT, matB, delT)
 }
 
 func DiffLineSet(orgLines, newLines []string, format string) {
@@ -1162,10 +1245,14 @@ func DiffLines(orgLines, newLines []string, format string) {
 	} // if
     
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		return diffOfSourceLine(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), 1500)
-	}, ed.ConstCost(500), ed.ConstCost(500))
+		return diffOfSourceLine(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), (len(orgLines[iA])+len(newLines[iB]))*300)
+	}, func(iA int) int {
+        return len(orgLines[iA])*100
+    }, func(iB int) int {
+        return len(newLines[iB])*100
+    })
     var lo lineOutput
-
+    
     for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
         switch {
             case j >= len(newLines) || i < len(orgLines) && matA[i] < 0:
