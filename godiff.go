@@ -1,11 +1,8 @@
 package main
 
 import (
-    "github.com/daviddengcn/go-villa"
-    "github.com/daviddengcn/go-colortext"
     "bytes"
     "fmt"
-    "github.com/daviddengcn/go-algs/ed"
     "go/ast"
     "go/parser"
     "go/printer"
@@ -14,6 +11,9 @@ import (
     "strings"
     "os"
     "math"
+    "github.com/daviddengcn/go-villa"
+    "github.com/daviddengcn/go-colortext"
+    "github.com/daviddengcn/go-algs/ed"
     "github.com/daviddengcn/go-diff/tm"
 )
 
@@ -997,7 +997,7 @@ func DiffLineSet(orgLines, newLines []string, format string) {
 	sort.Strings(newLines)
     
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		return diffOfStrings(orgLines[iA], newLines[iB], 4000)
+		return tm.DiffOfStrings(orgLines[iA], newLines[iB], 4000)
 	}, ed.ConstCost(1000), ed.ConstCost(1000))
     
     for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
@@ -1060,37 +1060,13 @@ func (lo *lineOutput) end() {
     lo.sameLines = nil
 }
 
-func diffOfStrings(a, b string, mx int) int {
-	if a == b {
-		return 0
-	} // if
-    return ed.String(a, b) * mx / max(len(a), len(b))
-}
-
-func diffOfSourceLine(a, b string, mx int) int {
-	if a == b {
-		return 0
-	} // if
-    
-    delT, insT := tm.LineToTokens(a), tm.LineToTokens(b)
-    
-	diff := ed.EditDistanceF(len(delT), len(insT), func(iA, iB int) int {
-        if delT[iA] == insT[iB] {
-            return 0
-        } // if
-		return 3
-	}, ed.ConstCost(1), ed.ConstCost(1))
-    
-    return diff * mx / (len(delT) + len(insT))
-}
-
 func DiffLines(orgLines, newLines []string, format string) {
 	if len(orgLines)+len(newLines) == 0 {
 		return
 	} // if
     
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		return diffOfSourceLine(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), (len(orgLines[iA])+len(newLines[iB]))*300)
+		return tm.DiffOfSourceLine(strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB]), (len(orgLines[iA])+len(newLines[iB]))*300)
 	}, func(iA int) int {
         return len(orgLines[iA])*100
     }, func(iB int) int {

@@ -4,6 +4,14 @@ import(
     "github.com/daviddengcn/go-algs/ed"
 )
 
+func max(a, b int) int {
+	if a > b {
+		return a
+	} // if
+
+	return b
+}
+
 const(
     rune_SINGLE = iota
     rune_NUM
@@ -134,3 +142,28 @@ func MatchTokens(delT, insT []string) (matA, matB []int) {
     
     return matA, matB
 }
+
+func DiffOfStrings(a, b string, mx int) int {
+	if a == b {
+		return 0
+	} // if
+    return ed.String(a, b) * mx / max(len(a), len(b))
+}
+
+func DiffOfSourceLine(a, b string, mx int) int {
+	if a == b {
+		return 0
+	} // if
+    
+    delT, insT := LineToTokens(a), LineToTokens(b)
+    
+	diff := ed.EditDistanceF(len(delT), len(insT), func(iA, iB int) int {
+        if delT[iA] == insT[iB] {
+            return 0
+        } // if
+		return 3
+	}, ed.ConstCost(1), ed.ConstCost(1))
+    
+    return diff * mx / (len(delT) + len(insT))
+}
+
