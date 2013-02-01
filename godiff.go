@@ -14,6 +14,7 @@ import (
     "strings"
     "os"
     "math"
+    "github.com/daviddengcn/go-diff/tm"
 )
 
 func cat(a, sep, b string) string {
@@ -947,63 +948,6 @@ func ShowInsLines(lines []string, gapLines int) {
     } // for i
 }
 
-const(
-    rune_SINGLE = iota
-    rune_NUM
-    rune_CAPITAL
-    rune_LOWER
-)
-
-func newToken(last, cur int) bool {
-    if last == rune_SINGLE || cur == rune_SINGLE {
-        return true
-    } // if
-    
-    if last == cur {
-        return false
-    } // if
-    
-    if last == rune_NUM || cur == rune_NUM {
-        return true
-    } // if
-    
-    if last == rune_LOWER && cur == rune_CAPITAL {
-        return true
-    } // if
-    
-    return false
-}
-
-func runeType(r rune) int {
-    switch {
-        case r >= '0' && r <= '9':
-            return rune_NUM
-            
-        case r >= 'A' && r <= 'Z':
-            return rune_CAPITAL
-            
-        case r >= 'a' && r <= 'z':
-            return rune_LOWER
-    } // if
-
-    return rune_SINGLE
-}
-
-func lineToTokens(line string) (tokens []string) {
-    lastTp := rune_SINGLE
-    for _, c := range line {
-        tp := runeType(c)
-        if newToken(lastTp, tp) {
-            tokens = append(tokens, "")
-        } // if
-        tokens[len(tokens) - 1] = tokens[len(tokens) - 1] + string(c)
-        
-        lastTp = tp
-    } // for c
-    
-    return tokens
-}
-
 func ShowDelTokens(del []string, mat []int, ins []string) {
     ct.ChangeColor(del_COLOR, false, ct.None, false)
     fmt.Print("--- ")
@@ -1040,108 +984,9 @@ func ShowInsTokens(ins []string, mat []int, del []string) {
     fmt.Println()
 }
 
-func pareOrder(tks []string) (order []int) {
-    order = make([]int, len(tks))
-    c0, c1, c2, c3, c4 := 0, 0, 0, 0, 0
-    for i := range tks {
-        switch tks[i] {
-            case "[":
-                c0 ++
-                order[i] = c0
-            case "]":
-                order[i] = c0
-                c0 --
-                
-            case "{":
-                c1 ++
-                order[i] = c1
-            case "}":
-                order[i] = c1
-                c1 --
-                
-            case "(":
-                c2 ++
-                order[i] = c2
-            case ")":
-                order[i] = c2
-                c2 --
-                
-            case `"`:
-                order[i] = c3
-                c3 = 1-c3
-                
-            case "'":
-                order[i] = c4
-                c4 = 1-c4
-        }
-    } // for i
-    
-    c0, c1, c2 = 0, 0, 0
-    
-    for i := len(tks) - 1; i >= 0; i -- {
-        switch tks[i] {
-            case "]":
-                c0 ++
-                if c0 < order[i] {
-                    order[i] = -c0
-                } // if
-            case "[":
-                if c0 < order[i] {
-                    order[i] = -c0
-                } // if
-                c0 --
-                
-            case "}":
-                c1 ++
-                if c1 < order[i] {
-                    order[i] = -c1
-                } // if
-            case "{":
-                if c1 < order[i] {
-                    order[i] = -c1
-                } // if
-                c1 --
-                
-            case ")":
-                c2 ++
-                if c2 < order[i] {
-                    order[i] = -c2
-                } // if
-            case "(":
-                if c2 < order[i] {
-                    order[i] = -c2
-                } // if
-                c2 --
-        }
-    } // for i
-    
-    return order
-}
-
 func ShowDiffLine(del, ins string) {
-    delT, insT := lineToTokens(del), lineToTokens(ins)
-    delO, insO := pareOrder(delT), pareOrder(insT)
-    
-	_, matA, matB := ed.EditDistanceFFull(len(delT), len(insT), func(iA, iB int) int {
-        if delT[iA] == insT[iB] {
-            if delO[iA] == insO[iB] {
-                return 0
-            } else {
-                return 1
-            }
-        } // if
-        return len(delT[iA]) + len(insT[iB]) + 1
-	}, func(iA int) int {
-        if delT[iA] == " " {
-            return 0
-        } // if
-            return len(delT[iA])
-        }, func(iB int) int {
-        if insT[iB] == " " {
-            return 0
-        } // if
-        return len(insT[iB])
-    })
+    delT, insT := tm.LineToTokens(del), tm.LineToTokens(ins)
+    matA, matB := tm.MatchTokens(delT, insT)
     
     ShowDelTokens(delT, matA, insT)
     ShowInsTokens(insT, matB, delT)
@@ -1227,7 +1072,7 @@ func diffOfSourceLine(a, b string, mx int) int {
 		return 0
 	} // if
     
-    delT, insT := lineToTokens(a), lineToTokens(b)
+    delT, insT := tm.LineToTokens(a), tm.LineToTokens(b)
     
 	diff := ed.EditDistanceF(len(delT), len(insT), func(iA, iB int) int {
         if delT[iA] == insT[iB] {
