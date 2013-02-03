@@ -611,7 +611,7 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 		} // if
 		lines = catLines(lines, "", []string{" " + nd.Tok.String() + " "})
 		lines = catLines(lines, "", []string{" range"})
-		lines = catLines(lines, " ", printToLines(fs, nd.X))
+		lines = catLines(lines, " ", nodeToLines(fs, nd.X))
 		lines = catLines(lines, "", []string{" {"})
 		lines = append(lines, insertIndent("    ", blockToLines(fs, nd.Body))...)
 		lines = append(lines, "}")
@@ -647,7 +647,8 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 		lines = appendLines(lines, " ", nodeToLines(fs, nd.Value)...)
 
 	case *ast.EmptyStmt:
-
+		// Do nothing
+		
 	case *ast.SwitchStmt:
 		lines = append(lines, "switch")
 		if nd.Init != nil {
@@ -673,11 +674,12 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 			lines = append(lines, printToLines(fs, nd.Type)...)
 		} // if
 		lines = appendLines(lines, "", "{")
+
 		for i, el := range nd.Elts {
 			if i > 0 {
 				lines = appendLines(lines, "", ", ")
 			} // if
-			lines = appendLines(lines, "", nodeToLines(fs, el)...)
+			lines = append(lines, insertIndent("    ", nodeToLines(fs, el))...)
 		} // for i, el
 		lines = appendLines(lines, "", "}")
 	case *ast.UnaryExpr:
