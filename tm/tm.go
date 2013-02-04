@@ -4,7 +4,6 @@ import (
 //	"fmt"
 	"github.com/daviddengcn/go-algs/ed"
 	"github.com/daviddengcn/go-villa"
-	"strings"
 )
 
 func max(a, b int) int {
@@ -75,6 +74,8 @@ func LineToTokens(line string) (tokens []string) {
 func pairOrder(tks []string) (order []int) {
 	order = make([]int, len(tks))
 	var s0, s1, s2 villa.IntSlice
+	q0 := -1
+	escaped := false
 	for i := range tks {
 		switch tks[i] {
 		case "(":
@@ -100,9 +101,30 @@ func pairOrder(tks []string) (order []int) {
 				order[s2.Remove(len(s2) - 1)] = i
 				order[i] = -1
 			}
+			
+		case `\`:
+			if q0 >= 0 && !escaped {
+				escaped = true
+				continue
+			}
+			
+		case `"`:
+			if !escaped {
+				if q0 < 0 {
+					q0 = i
+				} else {
+					order[q0] = i
+					order[i] = -1
+					q0 = -1
+				}
+			}
 		}
-	}
-
+		
+		if escaped {
+			escaped = false
+		}
+	} // for i
+//fmt.Println("order", order)
 	return order
 }
 
@@ -174,11 +196,10 @@ func DiffOfStrings(a, b string, mx int) int {
 }
 
 func CalcDiffOfSourceLine(a, b string, mx int) int {
-	a, b = strings.TrimSpace(a), strings.TrimSpace(b)
 	if a == b {
 		return 0
 	} // if
-
+	
 	delT, insT := LineToTokens(a), LineToTokens(b)
 
 	diff := ed.EditDistanceF(len(delT), len(insT), func(iA, iB int) int {
@@ -187,6 +208,6 @@ func CalcDiffOfSourceLine(a, b string, mx int) int {
 		} // if
 		return 3
 	}, ed.ConstCost(1), ed.ConstCost(1))
-
+	
 	return diff * mx / (len(delT) + len(insT))
 }

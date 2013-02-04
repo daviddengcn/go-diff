@@ -1066,11 +1066,12 @@ func DiffLines(orgLines, newLines []string, format string) {
 	} // if
 
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		return tm.CalcDiffOfSourceLine(orgLines[iA], newLines[iB], (len(orgLines[iA])+len(newLines[iB]))*300)
+		sa, sb := strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB])
+		return tm.CalcDiffOfSourceLine(sa, sb, (len(sa)+len(sb))*150)
 	}, func(iA int) int {
-		return len(orgLines[iA]) * 100
+		return len(strings.TrimSpace(orgLines[iA])) * 100
 	}, func(iB int) int {
-		return len(newLines[iB]) * 100
+		return len(strings.TrimSpace(newLines[iB])) * 100
 	})
 	var lo lineOutput
 
