@@ -24,10 +24,11 @@ $ go get -u github.com/daviddengcn/go-diff
 $ go install github.com/daviddengcn/go-diff
 $ go-diff <new-file> <org-file>
 ```
+(Make sure <code>$GO_PATH/bin</code> is in system's <code>$PATH</code>)
 
-<b>Using as git diff</b>
+<b>Used as git diff</b>
 ```bash
-$ set GIT_EXTERNAL_DIFF="go-diff"
+$ git config [--global] diff.external go-diff
 $ git diff
 ```
 
