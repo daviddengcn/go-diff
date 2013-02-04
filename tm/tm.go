@@ -3,7 +3,7 @@ package tm
 import (
 //	"fmt"
 	"github.com/daviddengcn/go-algs/ed"
-	"github.com/daviddengcn/go-villa"
+//	"github.com/daviddengcn/go-villa"
 )
 
 func max(a, b int) int {
@@ -71,119 +71,124 @@ func LineToTokens(line string) (tokens []string) {
 	return tokens
 }
 
-func pairOrder(tks []string) (order []int) {
-	order = make([]int, len(tks))
-	var s0, s1, s2 villa.IntSlice
-	q0 := -1
-	escaped := false
-	for i := range tks {
-		switch tks[i] {
-		case "(":
-			s0.Add(i)
-		case ")":
-			if len(s0) > 0 {
-				order[s0.Remove(len(s0) - 1)] = i
-				order[i] = -1
-			}
+func diffAt(a []string, iA int, b []string, iB int) int {
+	if iA < 0 {
+		if iB < 0 {
+			return 0
+		} else {
+			return 1
+		}
+	}
+	if iB < 0 {
+		return 1
+	}
+	
+	if iA >= len(a) {
+		if iB >= len(b) {
+			return 0
+		} else {
+			return 1
+		}
+	}
+	if iB >= len(b) {
+		return 1
+	}
+	
+	if a[iA] == b[iB] {
+		return 0
+	}
+	
+	return 2
+}
 
-		case "{":
-			s1.Add(i)
-		case "}":
-			if len(s1) > 0 {
-				order[s1.Remove(len(s1) - 1)] = i
-				order[i] = -1
-			}
+func nearChecks(a []string) (l, r []bool) {
+	l, r = make([]bool, len(a)), make([]bool, len(a))
+	
+	const(
+		normal = iota
+		doubleQuoted
+		singleQuoted
+	)
+	
+	status := normal
+	escaped := false
+	for i, el := range a {
+		l[i], r[i] = true, true
 		
-		case "[":
-			s2.Add(i)
-		case "]":
-			if len(s2) > 0 {
-				order[s2.Remove(len(s2) - 1)] = i
-				order[i] = -1
+		switch status {
+		case normal:
+			switch el {
+			case `"`:
+				status = doubleQuoted
+				l[i] = false
+			case "'":
+				status = singleQuoted
+				l[i] = false
+			case ",", ")":
+				r[i] = false
 			}
-			
-		case `\`:
-			if q0 >= 0 && !escaped {
-				escaped = true
-				continue
-			}
-			
-		case `"`:
-			if !escaped {
-				if q0 < 0 {
-					q0 = i
-				} else {
-					order[q0] = i
-					order[i] = -1
-					q0 = -1
+		case doubleQuoted:
+			switch el {
+			case `\`:
+				if !escaped {
+					escaped = true
+					continue
+				}
+			case `"`:
+				if !escaped {
+					status = normal
+					r[i] = false
 				}
 			}
-		}
-		
-		if escaped {
 			escaped = false
-		}
-	} // for i
-//fmt.Println("order", order)
-	return order
+		case singleQuoted:
+			switch el {
+			case `\`:
+				if !escaped {
+					escaped = true
+					continue
+				}
+			case "'":
+				if !escaped {
+					status = normal
+					r[i] = false
+				}
+			}
+			escaped = false
+		} // switch status
+	}
+	
+	return l, r
 }
 
 func MatchTokens(delT, insT []string) (matA, matB []int) {
-	delO, insO := pairOrder(delT), pairOrder(insT)
+	delL, delR := nearChecks(delT)
+	
 	_, matA, matB = ed.EditDistanceFFull(len(delT), len(insT), func(iA, iB int) int {
 		if delT[iA] == insT[iB] {
-			if (delO[iA] == 0) == (insO[iB] == 0) {
-				return 0
-			} else {
-				return 1
+			c := 0
+			if delL[iA] {
+				c += diffAt(delT, iA - 1, insT, iB - 1)
 			}
+			if delR[iA] {
+				c += diffAt(delT, iA + 1, insT, iB + 1)
+			}
+			return c
 		} // if
-		return len(delT[iA]) + len(insT[iB]) + 1
+		return len(delT[iA]) + len(insT[iB]) + 5
 	}, func(iA int) int {
-		if delT[iA] == " " || delO[iA] < 0 {
+		if delT[iA] == " " {
 			return 0
 		} // if
-		return len(delT[iA])
+		
+		return len(delT[iA]) + 2
 	}, func(iB int) int {
-		if insT[iB] == " " || insO[iB] < 0 {
+		if insT[iB] == " " {
 			return 0
 		} // if
-		return len(insT[iB])
+		
+		return len(insT[iB]) + 2
 	})
-
-	for i := range matA {
-		j := delO[i]
-		if j > 0 {
-			k := matA[i]
-			if k < 0 {
-				matA[j] = -1
-			} else {
-				l := insO[k]
-				if l > 0 {
-					matA[j] = l
-				} else {
-					matA[j] = -1
-				}
-			}
-		}
-	}
-
-	for k := range matB {
-		l := insO[k]
-		if l > 0 {
-			i := matB[k]
-			if i < 0 {
-				matB[l] = -1
-			} else {
-				j := delO[i]
-				if j > 0 {
-					matB[l] = j
-				} else {
-					matB[j] = -1
-				}
-			}
-		}
-	}
 
 	return matA, matB
 }
@@ -195,19 +200,43 @@ func DiffOfStrings(a, b string, mx int) int {
 	return ed.String(a, b) * mx / max(len(a), len(b))
 }
 
+var key_WORDS map[string]int = map[string]int {
+	"if": 1}
+
+func isKeywords(a []string) (res []bool) {
+	res = make([]bool, len(a))
+	for i, w := range a {
+		_, res[i] = key_WORDS[w]
+	}
+	
+	return res
+}
+
 func CalcDiffOfSourceLine(a, b string, mx int) int {
 	if a == b {
 		return 0
 	} // if
 	
 	delT, insT := LineToTokens(a), LineToTokens(b)
+	delK, insK := isKeywords(delT), isKeywords(insT)
 
 	diff := ed.EditDistanceF(len(delT), len(insT), func(iA, iB int) int {
 		if delT[iA] == insT[iB] {
 			return 0
 		} // if
-		return 3
-	}, ed.ConstCost(1), ed.ConstCost(1))
+		return 50
+	}, func(iA int) int {
+		if delK[iA] {
+			return 2
+		}
+		return 1
+	}, func(iB int) int {
+		if insK[iB] {
+			return 2
+		}
+		
+		return 1
+	})
 	
 	return diff * mx / (len(delT) + len(insT))
 }

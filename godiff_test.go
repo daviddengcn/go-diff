@@ -47,18 +47,3 @@ func TestGreedyMatch(t *testing.T) {
 		t.Errorf("matA should be [1, -1]")
 	} // if
 }
-
-func TestMatchTokens(t *testing.T) {
-	delT, insT := tm.LineToTokens("{abc{def}ghi}"), tm.LineToTokens("{def}")
-	matA, matB := tm.MatchTokens(delT, insT)
-
-	if matA[0] != 0 {
-		t.Errorf("matA[0] should be 0")
-	}
-	if matA[len(matA)-1] != len(insT)-1 {
-		t.Errorf("matA[len-1] should be %d", len(insT)-1)
-	}
-
-	ShowDelTokens(delT, matA, insT)
-	ShowInsTokens(insT, matB, delT)
-}
