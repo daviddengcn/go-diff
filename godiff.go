@@ -1067,7 +1067,8 @@ func DiffLines(orgLines, newLines []string, format string) {
 
 	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
 		sa, sb := strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB])
-		return tm.CalcDiffOfSourceLine(sa, sb, (len(sa)+len(sb))*150)
+		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
+		return tm.CalcDiffOfSourceLine(sa, sb, (len(sa)+len(sb))*120)
 	}, func(iA int) int {
 		return len(strings.TrimSpace(orgLines[iA])) * 100
 	}, func(iB int) int {
