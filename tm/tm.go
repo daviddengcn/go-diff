@@ -3,7 +3,7 @@ package tm
 import (
 //	"fmt"
 	"github.com/daviddengcn/go-algs/ed"
-//	"github.com/daviddengcn/go-villa"
+	"github.com/daviddengcn/go-villa"
 )
 
 func max(a, b int) int {
@@ -161,6 +161,101 @@ func nearChecks(a []string) (l, r []bool) {
 	return l, r
 }
 
+// if tks[i] and tks[j] are pairs, pairs[i], pairs[j] = j, i
+func findPairs(tks []string) (pairs []int) {
+	pairs = make([]int, len(tks))
+	var s0, s1, s2 villa.IntSlice
+	for i, tk := range tks {
+		pairs[i] = -1
+		
+		switch tk {
+		case "(":
+			s0.Add(i)
+		case ")":
+			j := s0.Remove(len(s0) - 1)
+			pairs[i], pairs[j] = j, i
+		
+		case "[":
+			s1.Add(i)
+		case "]":
+			j := s1.Remove(len(s1) - 1)
+			pairs[i], pairs[j] = j, i
+		
+		case "{":
+			s2.Add(i)
+		case "}":
+			j := s2.Remove(len(s2) - 1)
+			pairs[i], pairs[j] = j, i
+		}
+	}
+	
+	return pairs
+}
+
+func noMatchBetween(mat []int, p1, p2 int) bool {
+	if p2 < p1 {
+		p1, p2 = p2, p1
+	}
+	for i := p1 + 1; i < p2; i ++ {
+		if mat[i] >= 0 {
+			return false
+		}
+	}
+	
+	return true
+}
+
+func alignPairs(matA, matB, pairA, pairB []int) {
+	for {
+		changed := false
+		/*
+		A   i <---> j   m
+		    ^          7
+		    |         /
+		    v        L
+		B   k <---> l
+		 */
+		for i := range matA {
+			j, k := pairA[i], matA[i]
+			if j >= 0 && k >= 0 && matA[j] < 0 {
+				l := pairB[k]
+				if l >= 0 && matB[l] >= 0 {
+					m := matB[l]
+					if noMatchBetween(matA, j, m) {
+						matA[j], matA[m], matB[l] = l, -1, j
+						changed = true
+					}
+				}
+			}
+		}
+		
+		/*
+		B   i <---> j   m
+		    ^          7
+		    |         /
+		    v        L
+		A   k <---> l
+		 */
+		for i := range matB {
+			j, k := pairB[i], matB[i]
+			if j >= 0 && k >= 0 && matB[j] < 0 {
+				l := pairA[k]
+				if l >= 0 && matA[l] >= 0 {
+					m := matA[l]
+					if noMatchBetween(matB, j, m) {
+						matB[j], matB[m], matA[l] = l, -1, j
+						changed = true
+					}
+				}
+			}
+		}
+		
+		if !changed {
+			break
+		}
+	}
+}
+
 func MatchTokens(delT, insT []string) (matA, matB []int) {
 	delL, delR := nearChecks(delT)
 	
@@ -189,6 +284,9 @@ func MatchTokens(delT, insT []string) (matA, matB []int) {
 		
 		return len(insT[iB]) + 2
 	})
+	
+	delP, insP := findPairs(delT), findPairs(insT)
+	alignPairs(matA, matB, delP, insP)
 
 	return matA, matB
 }

@@ -104,6 +104,34 @@ func TestMatchTokens2(t *testing.T) {
 	if matA[12] != 14 {
 		t.Errorf("matA[12] should be 14 but got %d", matA[12])
 	}
+	
+	delT, insT = LineToTokens("Rename(m.exeFile(gsp))"), LineToTokens("Rename(exeFile)")
+	matA, matB = MatchTokens(delT, insT)
+	fmt.Println(delT, matA)
+	fmt.Println(insT, matB)
+	
+	if matB[4] != 9 {
+		t.Errorf("matB[4] should be 9 but got %d", matB[4])
+	}
+
+	delT, insT = LineToTokens("Rename(exeFile)"), LineToTokens("Rename(m.exeFile(gsp))")
+	matA, matB = MatchTokens(delT, insT)
+	fmt.Println(delT, matA)
+	fmt.Println(insT, matB)
+	
+	if matA[4] != 9 {
+		t.Errorf("matA[4] should be 9 but got %d", matA[4])
+	}
+
+	delT, insT = LineToTokens("Rename[m.exeFile[gsp]]"), LineToTokens("Rename[exeFile]")
+	matA, matB = MatchTokens(delT, insT)
+	fmt.Println(delT, matA)
+	fmt.Println(insT, matB)
+	
+	if matB[4] != 9 {
+		t.Errorf("matB[4] should be 9 but got %d", matB[4])
+	}
+
 }
 
 func TestCalcDiffOfSourceLine(t *testing.T) {
