@@ -205,6 +205,9 @@ func noMatchBetween(mat []int, p1, p2 int) bool {
 	return true
 }
 
+/*
+if one of the pairs is match, and the other is not. Some adjustment can be performed.
+*/
 func alignPairs(matA, matB, pairA, pairB []int) {
 	for {
 		changed := false
@@ -298,13 +301,13 @@ func DiffOfStrings(a, b string, mx int) int {
 	return ed.String(a, b) * mx / max(len(a), len(b))
 }
 
-var key_WORDS map[string]int = map[string]int {
-	"if": 1}
+var key_WORDS villa.StrSet = villa.NewStrSet(
+	"if", "for", "return", "switch", "case", "select", "go")
 
 func isKeywords(a []string) (res []bool) {
 	res = make([]bool, len(a))
 	for i, w := range a {
-		_, res[i] = key_WORDS[w]
+		res[i] = key_WORDS.In(w)
 	}
 	
 	return res
