@@ -1131,7 +1131,7 @@ func DiffImports(orgInfo, newInfo *FileInfo) {
    Diff Types
 */
 func DiffTypes(orgInfo, newInfo *FileInfo) {
-	mat, _, rows, cols := GreedyMatch(len(orgInfo.types.Parts), len(newInfo.types.Parts), func(iA, iB int) int {
+	mat, _, matA, matB := GreedyMatch(len(orgInfo.types.Parts), len(newInfo.types.Parts), func(iA, iB int) int {
 		return orgInfo.types.Parts[iA].calcDiff(newInfo.types.Parts[iB]) * 3 / 2
 	}, func(iA int) int {
 		return orgInfo.types.Parts[iA].Weight()
@@ -1139,22 +1139,29 @@ func DiffTypes(orgInfo, newInfo *FileInfo) {
 		return newInfo.types.Parts[iB].Weight()
 	})
 
-	for i := range rows {
-		j := rows[i]
+	j0 := 0
+	for i := range matA {
+		j := matA[i]
 		if j < 0 {
 			ShowDelWholeLine(orgInfo.types.Parts[i].oneLine())
 		} else {
+			for ; j0 < j; j0 ++ {
+				if matB[j0] < 0 {
+					ShowInsWholeLine(newInfo.types.Parts[j0].oneLine())
+				}
+			}
+			
 			if mat[i][j] > 0 {
 				orgInfo.types.Parts[i].showDiff(newInfo.types.Parts[j])
 			} //  if
 		} // else
 	} // for i
 
-	for i, col := range cols {
-		if col < 0 {
-			ShowInsWholeLine(newInfo.types.Parts[i].oneLine())
-		} // if
-	} // for i
+	for ; j0 < len(matB); j0 ++ {
+		if matB[j0] < 0 {
+			ShowInsWholeLine(newInfo.types.Parts[j0].oneLine())
+		}
+	}
 }
 
 func DiffVars(orgInfo, newInfo *FileInfo) {
@@ -1166,12 +1173,19 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
 		return newInfo.vars.Parts[iB].Weight()
 	})
 
+	j0 := 0
 	for i := range matA {
 		j := matA[i]
 		if j < 0 {
 			ShowDelLines(orgInfo.vars.Parts[i].sourceLines(""), 2)
 			// fmt.Println()
 		} else {
+			for ; j0 < j; j0 ++ {
+				if matB[j0] < 0 {
+					ShowInsLines(newInfo.vars.Parts[j0].sourceLines(""), 2)
+				} // if
+			}
+			
 			if mat[i][j] > 0 {
 				orgInfo.vars.Parts[i].showDiff(newInfo.vars.Parts[j])
 				fmt.Println()
@@ -1179,9 +1193,9 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
 		} // else
 	} // for i
 
-	for j, col := range matB {
-		if col < 0 {
-			ShowInsLines(newInfo.vars.Parts[j].sourceLines(""), 2)
+	for ; j0 < len(matB); j0 ++ {
+		if matB[j0] < 0 {
+			ShowInsLines(newInfo.vars.Parts[j0].sourceLines(""), 2)
 		} // if
 	}
 }
@@ -1195,20 +1209,26 @@ func DiffFuncs(orgInfo, newInfo *FileInfo) {
 		return newInfo.funcs.Parts[iB].Weight()
 	})
 
+	j0 := 0
 	for i := range matA {
 		j := matA[i]
 		if j < 0 {
 			ShowDelWholeLine(orgInfo.funcs.Parts[i].oneLine())
 		} else {
+			for ; j0 < j; j0 ++ {
+				if matB[j0] < 0 {
+					ShowInsWholeLine(newInfo.funcs.Parts[j0].oneLine())
+				}
+			}
 			if mat[i][j] > 0 {
 				orgInfo.funcs.Parts[i].showDiff(newInfo.funcs.Parts[j])
 			} //  if
 		} // else
 	} // for i
 
-	for j, col := range matB {
-		if col < 0 {
-			ShowInsWholeLine(newInfo.funcs.Parts[j].oneLine())
+	for ; j0 < len(matB); j0 ++ {
+		if matB[j0] < 0 {
+			ShowInsWholeLine(newInfo.funcs.Parts[j0].oneLine())
 		}
 	}
 }
