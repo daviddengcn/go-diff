@@ -134,6 +134,11 @@ func TestMatchTokens2(t *testing.T) {
 
 }
 
+
+func TestMatchTokens3(t *testing.T) {
+	MatchTokens(LineToTokens("[({gsp}}))]]"), LineToTokens("])}"))
+}
+
 func TestCalcDiffOfSourceLine(t *testing.T) {
 	diff := CalcDiffOfSourceLine("return &monitor{", "m := &monitor{", 300)
 	fmt.Println("diff", diff)

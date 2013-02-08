@@ -172,20 +172,26 @@ func findPairs(tks []string) (pairs []int) {
 		case "(":
 			s0.Add(i)
 		case ")":
-			j := s0.Remove(len(s0) - 1)
-			pairs[i], pairs[j] = j, i
+			if len(s0) > 0 {
+				j := s0.Pop()
+				pairs[i], pairs[j] = j, i
+			}
 		
 		case "[":
 			s1.Add(i)
 		case "]":
-			j := s1.Remove(len(s1) - 1)
-			pairs[i], pairs[j] = j, i
+			if len(s1) > 0 {
+				j := s1.Pop()
+				pairs[i], pairs[j] = j, i
+			} // if
 		
 		case "{":
 			s2.Add(i)
 		case "}":
-			j := s2.Remove(len(s2) - 1)
-			pairs[i], pairs[j] = j, i
+			if len(s2) > 0 {
+				j := s2.Pop()
+				pairs[i], pairs[j] = j, i
+			} // if
 		}
 	}
 	
