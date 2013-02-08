@@ -956,7 +956,7 @@ func ShowDelTokens(del []string, mat []int, ins []string) {
 		if mat[i] < 0 || tk != ins[mat[i]] {
 			ct.ChangeColor(del_COLOR, false, ct.None, false)
 		} else {
-			ct.ResetColor()
+			ct.ChangeColor(ct.White, false, ct.None, false)
 		} // else
 
 		fmt.Print(tk)
