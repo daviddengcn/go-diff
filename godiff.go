@@ -648,7 +648,7 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 
 	case *ast.EmptyStmt:
 		// Do nothing
-		
+
 	case *ast.SwitchStmt:
 		lines = append(lines, "switch")
 		if nd.Init != nil {
@@ -1145,19 +1145,19 @@ func DiffTypes(orgInfo, newInfo *FileInfo) {
 		if j < 0 {
 			ShowDelWholeLine(orgInfo.types.Parts[i].oneLine())
 		} else {
-			for ; j0 < j; j0 ++ {
+			for ; j0 < j; j0++ {
 				if matB[j0] < 0 {
 					ShowInsWholeLine(newInfo.types.Parts[j0].oneLine())
 				}
 			}
-			
+
 			if mat[i][j] > 0 {
 				orgInfo.types.Parts[i].showDiff(newInfo.types.Parts[j])
 			} //  if
 		} // else
 	} // for i
 
-	for ; j0 < len(matB); j0 ++ {
+	for ; j0 < len(matB); j0++ {
 		if matB[j0] < 0 {
 			ShowInsWholeLine(newInfo.types.Parts[j0].oneLine())
 		}
@@ -1180,12 +1180,12 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
 			ShowDelLines(orgInfo.vars.Parts[i].sourceLines(""), 2)
 			// fmt.Println()
 		} else {
-			for ; j0 < j; j0 ++ {
+			for ; j0 < j; j0++ {
 				if matB[j0] < 0 {
 					ShowInsLines(newInfo.vars.Parts[j0].sourceLines(""), 2)
 				} // if
 			}
-			
+
 			if mat[i][j] > 0 {
 				orgInfo.vars.Parts[i].showDiff(newInfo.vars.Parts[j])
 				fmt.Println()
@@ -1193,7 +1193,7 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
 		} // else
 	} // for i
 
-	for ; j0 < len(matB); j0 ++ {
+	for ; j0 < len(matB); j0++ {
 		if matB[j0] < 0 {
 			ShowInsLines(newInfo.vars.Parts[j0].sourceLines(""), 2)
 		} // if
@@ -1215,7 +1215,7 @@ func DiffFuncs(orgInfo, newInfo *FileInfo) {
 		if j < 0 {
 			ShowDelWholeLine(orgInfo.funcs.Parts[i].oneLine())
 		} else {
-			for ; j0 < j; j0 ++ {
+			for ; j0 < j; j0++ {
 				if matB[j0] < 0 {
 					ShowInsWholeLine(newInfo.funcs.Parts[j0].oneLine())
 				}
@@ -1226,7 +1226,7 @@ func DiffFuncs(orgInfo, newInfo *FileInfo) {
 		} // else
 	} // for i
 
-	for ; j0 < len(matB); j0 ++ {
+	for ; j0 < len(matB); j0++ {
 		if matB[j0] < 0 {
 			ShowInsWholeLine(newInfo.funcs.Parts[j0].oneLine())
 		}
