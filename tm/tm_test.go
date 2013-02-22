@@ -65,7 +65,7 @@ func TestMatchTokens2(t *testing.T) {
 	if matA[6] != 4 {
 		t.Errorf("matA[5] should be 4 but got %d", matA[6])
 	}
-	
+
 	delT, insT = LineToTokens("(), (abc)"), LineToTokens("(abc)")
 	matA, matB = MatchTokens(delT, insT)
 	fmt.Println(delT, matA)
@@ -91,7 +91,7 @@ func TestMatchTokens2(t *testing.T) {
 	if matA[6] != 2 {
 		t.Errorf("matA[6] should be 2 but got %d", matA[6])
 	}
-	
+
 	delT, insT = LineToTokens(`cmd:=exec.Command("go", "abc")`), LineToTokens(`cmd:=villa.Path("go").Command("abc")`)
 	matA, matB = MatchTokens(delT, insT)
 	fmt.Println(delT, matA)
@@ -104,12 +104,12 @@ func TestMatchTokens2(t *testing.T) {
 	if matA[12] != 14 {
 		t.Errorf("matA[12] should be 14 but got %d", matA[12])
 	}
-	
+
 	delT, insT = LineToTokens("Rename(m.exeFile(gsp))"), LineToTokens("Rename(exeFile)")
 	matA, matB = MatchTokens(delT, insT)
 	fmt.Println(delT, matA)
 	fmt.Println(insT, matB)
-	
+
 	if matB[4] != 9 {
 		t.Errorf("matB[4] should be 9 but got %d", matB[4])
 	}
@@ -118,7 +118,7 @@ func TestMatchTokens2(t *testing.T) {
 	matA, matB = MatchTokens(delT, insT)
 	fmt.Println(delT, matA)
 	fmt.Println(insT, matB)
-	
+
 	if matA[4] != 9 {
 		t.Errorf("matA[4] should be 9 but got %d", matA[4])
 	}
@@ -127,13 +127,12 @@ func TestMatchTokens2(t *testing.T) {
 	matA, matB = MatchTokens(delT, insT)
 	fmt.Println(delT, matA)
 	fmt.Println(insT, matB)
-	
+
 	if matB[4] != 9 {
 		t.Errorf("matB[4] should be 9 but got %d", matB[4])
 	}
 
 }
-
 
 func TestMatchTokens3(t *testing.T) {
 	MatchTokens(LineToTokens("[({gsp}}))]]"), LineToTokens("])}"))
@@ -142,7 +141,7 @@ func TestMatchTokens3(t *testing.T) {
 func TestCalcDiffOfSourceLine(t *testing.T) {
 	diff := CalcDiffOfSourceLine("return &monitor{", "m := &monitor{", 300)
 	fmt.Println("diff", diff)
-	
+
 	diff = CalcDiffOfSourceLine("if (delO[iA] == 0) == (insO[iB] == 0) {", "if delL[iA] {", 1000)
 	fmt.Println("diff", diff)
 	diff = CalcDiffOfSourceLine("if (delO[iA] == 0) == (insO[iB] == 0) {", "c += diffAt(delT, iA - 1, insT, iB - 1)", 1000)
