@@ -4,7 +4,7 @@ import (
 	"github.com/daviddengcn/go-algs/ed"
 	"github.com/daviddengcn/go-villa"
 	"testing"
-	//    "fmt"
+	"fmt"
 	"github.com/daviddengcn/go-diff/tm"
 )
 
@@ -46,4 +46,34 @@ func TestGreedyMatch(t *testing.T) {
 	if !villa.IntSlice(matB).Equals([]int{1, -1}) {
 		t.Errorf("matA should be [1, -1]")
 	} // if
+}
+
+func TestExp(t *testing.T) {
+	fmt.Println("OLD")
+	orgInfo, err := Parse("",`
+package main
+func main() {
+	a := (1 + 2) / 3
+	fmt.Println("Access token (" + ac_FILENAME + ") not found, try authorize...")
+}
+`)
+	if err != nil {
+		t.Errorf("org Parse failed: %v", err)
+	}
+	
+	fmt.Println("NEW")
+	newInfo, err := Parse("", `
+package main
+func main() {
+	a := (1 +
+		2) / 3
+	fmt.Println("Access token (" + ac_FILENAME +
+		") not found, try authorize...")
+}
+`)
+	if err != nil {
+		t.Errorf("new Parse failed: %v", err)
+	}
+
+	Diff(orgInfo, newInfo)
 }

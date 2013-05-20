@@ -514,6 +514,7 @@ func newTypeStmtInfo(fs *token.FileSet, name string, def ast.Expr) *Fragment {
 }
 
 func newExpDef(fs *token.FileSet, def ast.Expr) DiffFragment {
+//ast.Print(fs, def)
 	var src bytes.Buffer
 	(&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(&src, fs, def)
 	return &StringFrag{weight: 100, source: src.String()}
@@ -645,6 +646,9 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 		lines = append(lines, nodeToLines(fs, nd.Chan)...)
 		lines = appendLines(lines, " ", "<-")
 		lines = appendLines(lines, " ", nodeToLines(fs, nd.Value)...)
+		
+	case *ast.ExprStmt:
+		return nodeToLines(fs, nd.X)
 
 	case *ast.EmptyStmt:
 		// Do nothing
@@ -682,9 +686,20 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 			lines = append(lines, insertIndent("    ", nodeToLines(fs, el))...)
 		} // for i, el
 		lines = appendLines(lines, "", "}")
+		
 	case *ast.UnaryExpr:
 		lines = append(lines, nd.Op.String())
 		lines = appendLines(lines, "", nodeToLines(fs, nd.X)...)
+		
+	case *ast.BinaryExpr:
+		lines = appendLines(lines, "", nodeToLines(fs, nd.X)...)
+		lines = appendLines(lines, " ", nd.Op.String())
+		lines = appendLines(lines, " ", nodeToLines(fs, nd.Y)...)
+		
+	case *ast.ParenExpr:
+		lines = append(lines, "(")
+		lines = appendLines(lines, "", nodeToLines(fs, nd.X)...)
+		lines = appendLines(lines, "", ")")
 
 	case *ast.CallExpr:
 		lines = append(lines, nodeToLines(fs, nd.Fun)...)
@@ -725,6 +740,9 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 		} // for
 
 	default:
+	//ast.Print(fs, nd)
+	//ast.Print(fs, printToLines(fs, nd))
+
 		return printToLines(fs, nd)
 	}
 
@@ -837,9 +855,9 @@ func (info *FileInfo) collect() {
 	} // for decl
 }
 
-func Parse(fn string) (*FileInfo, error) {
+func Parse(fn string, src interface{}) (*FileInfo, error) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, fn, nil, 0)
+	f, err := parser.ParseFile(fset, fn, src, 0)
 	if err != nil {
 		return nil, err
 	} // if
@@ -1251,13 +1269,13 @@ func main() {
 
 	fmt.Printf("Analyzing difference between %s and %s ...\n", orgFn, newFn)
 
-	orgInfo, err := Parse(orgFn)
+	orgInfo, err := Parse(orgFn, nil)
 	if err != nil {
 		fmt.Println(err)
 		return
 	} // if
 
-	newInfo, err := Parse(newFn)
+	newInfo, err := Parse(newFn, nil)
 	if err != nil {
 		fmt.Println(err)
 		return
