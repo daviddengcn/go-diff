@@ -739,9 +739,19 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 			lines = append(lines, insertIndent("    ", nodeToLines(fs, st))...)
 		} // for
 
+	case *ast.SelectorExpr:
+		lines = append(lines, nodeToLines(fs, nd.X)...)
+		lines = appendLines(lines, "", ".")
+		lines = appendLines(lines, "", nodeToLines(fs, nd.Sel)...)
+	case *ast.LabeledStmt:
+		lines = append(lines, nodeToLines(fs, nd.Label)...)
+		lines = appendLines(lines, "", ":")
+		lines = appendLines(lines, "", nodeToLines(fs, nd.Stmt)...)
+	case *ast.Ident, *ast.BasicLit, *ast.DeclStmt, *ast.BranchStmt, *ast.IndexExpr, *ast.FuncType, *ast.SliceExpr, *ast.StarExpr, *ast.ArrayType, *ast.TypeAssertExpr:
+		return printToLines(fs, nd)
 	default:
-	//ast.Print(fs, nd)
-	//ast.Print(fs, printToLines(fs, nd))
+//ast.Print(fs, nd)
+//ast.Print(fs, printToLines(fs, nd))
 
 		return printToLines(fs, nd)
 	}
@@ -850,7 +860,7 @@ func (info *FileInfo) collect() {
 			info.funcs.Parts = append(info.funcs.Parts, fd)
 			//ast.Print(info.fs, d)
 		default:
-			fmt.Println(d)
+			// fmt.Println(d)
 		} // switch decl.(type)
 	} // for decl
 }

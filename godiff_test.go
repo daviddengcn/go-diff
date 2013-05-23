@@ -55,6 +55,7 @@ package main
 func main() {
 	a := (1 + 2) / 3
 	fmt.Println("Access token (" + ac_FILENAME + ") not found, try authorize...")
+	c = f(1, 2, 3)
 }
 `)
 	if err != nil {
@@ -69,6 +70,8 @@ func main() {
 		2) / 3
 	fmt.Println("Access token (" + ac_FILENAME +
 		") not found, try authorize...")
+	c = f(1, 2,
+		3)
 }
 `)
 	if err != nil {
