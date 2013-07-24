@@ -1,3 +1,7 @@
+/*
+	go-diff is a tool checking semantic difference between go files. If parsing
+	is failed for either file, a line-to-line comparing is imposed.
+*/
 package main
 
 import (
