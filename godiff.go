@@ -304,7 +304,7 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
 			if len(f.Parts) > 1 || len(f.Parts[0].(*Fragment).Parts[0].(*StringFrag).source) > 0 {
 				lines = catLines(lines, "", []string{")"})
 			} // if
-		} // if            
+		} // if
 	case DF_BLOCK:
 		lines = append(lines, "{")
 		for _, p := range f.Parts {
@@ -514,7 +514,7 @@ func newTypeStmtInfo(fs *token.FileSet, name string, def ast.Expr) *Fragment {
 }
 
 func newExpDef(fs *token.FileSet, def ast.Expr) DiffFragment {
-//ast.Print(fs, def)
+	//ast.Print(fs, def)
 	var src bytes.Buffer
 	(&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(&src, fs, def)
 	return &StringFrag{weight: 100, source: src.String()}
@@ -646,7 +646,7 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 		lines = append(lines, nodeToLines(fs, nd.Chan)...)
 		lines = appendLines(lines, " ", "<-")
 		lines = appendLines(lines, " ", nodeToLines(fs, nd.Value)...)
-		
+
 	case *ast.ExprStmt:
 		return nodeToLines(fs, nd.X)
 
@@ -686,16 +686,16 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 			lines = append(lines, insertIndent("    ", nodeToLines(fs, el))...)
 		} // for i, el
 		lines = appendLines(lines, "", "}")
-		
+
 	case *ast.UnaryExpr:
 		lines = append(lines, nd.Op.String())
 		lines = appendLines(lines, "", nodeToLines(fs, nd.X)...)
-		
+
 	case *ast.BinaryExpr:
 		lines = appendLines(lines, "", nodeToLines(fs, nd.X)...)
 		lines = appendLines(lines, " ", nd.Op.String())
 		lines = appendLines(lines, " ", nodeToLines(fs, nd.Y)...)
-		
+
 	case *ast.ParenExpr:
 		lines = append(lines, "(")
 		lines = appendLines(lines, "", nodeToLines(fs, nd.X)...)
@@ -750,8 +750,8 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 	case *ast.Ident, *ast.BasicLit, *ast.DeclStmt, *ast.BranchStmt, *ast.IndexExpr, *ast.FuncType, *ast.SliceExpr, *ast.StarExpr, *ast.ArrayType, *ast.TypeAssertExpr:
 		return printToLines(fs, nd)
 	default:
-//ast.Print(fs, nd)
-//ast.Print(fs, printToLines(fs, nd))
+		//ast.Print(fs, nd)
+		//ast.Print(fs, printToLines(fs, nd))
 
 		return printToLines(fs, nd)
 	}
@@ -1098,9 +1098,9 @@ func DiffLines(orgLines, newLines []string, format string) {
 		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
 		return tm.CalcDiffOfSourceLine(sa, sb, (len(sa)+len(sb))*120)
 	}, func(iA int) int {
-		return len(strings.TrimSpace(orgLines[iA])) * 100
+		return max(1, len(strings.TrimSpace(orgLines[iA])) * 100)
 	}, func(iB int) int {
-		return len(strings.TrimSpace(newLines[iB])) * 100
+		return max(1, len(strings.TrimSpace(newLines[iB])) * 100)
 	})
 	var lo lineOutput
 
@@ -1269,6 +1269,16 @@ func Diff(orgInfo, newInfo *FileInfo) {
 	DiffFuncs(orgInfo, newInfo)
 }
 
+func readLines(fn villa.Path) []string {
+	bts, err := fn.ReadFile()
+
+	if err != nil {
+		return nil
+	}
+
+	return strings.Split(string(bts), "\n")
+}
+
 func main() {
 	if len(os.Args) < 3 {
 		fmt.Println("Please specify the new/original files.", os.Args)
@@ -1277,19 +1287,18 @@ func main() {
 	newFn := os.Args[1]
 	orgFn := os.Args[2]
 
-	fmt.Printf("Analyzing difference between %s and %s ...\n", orgFn, newFn)
+	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
 
-	orgInfo, err := Parse(orgFn, nil)
-	if err != nil {
-		fmt.Println(err)
-		return
-	} // if
+	orgInfo, err1 := Parse(orgFn, nil)
+	newInfo, err2 := Parse(newFn, nil)
 
-	newInfo, err := Parse(newFn, nil)
-	if err != nil {
-		fmt.Println(err)
+	if err1 != nil || err2 != nil {
+		orgLines := readLines(villa.Path(orgFn))
+		newLines := readLines(villa.Path(newFn))
+
+		DiffLines(orgLines, newLines, "%s")
 		return
-	} // if
+	}
 
 	Diff(orgInfo, newInfo)
 }

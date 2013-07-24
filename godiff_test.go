@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/daviddengcn/go-algs/ed"
-	"github.com/daviddengcn/go-villa"
-	"testing"
 	"fmt"
+	"github.com/daviddengcn/go-algs/ed"
 	"github.com/daviddengcn/go-diff/tm"
+	"github.com/daviddengcn/go-villa"
+	"strings"
+	"testing"
 )
 
 func TestDiffLine(t *testing.T) {
@@ -50,7 +51,7 @@ func TestGreedyMatch(t *testing.T) {
 
 func TestExp(t *testing.T) {
 	fmt.Println("OLD")
-	orgInfo, err := Parse("",`
+	orgInfo, err := Parse("", `
 package main
 func main() {
 	a := (1 + 2) / 3
@@ -61,7 +62,7 @@ func main() {
 	if err != nil {
 		t.Errorf("org Parse failed: %v", err)
 	}
-	
+
 	fmt.Println("NEW")
 	newInfo, err := Parse("", `
 package main
@@ -79,4 +80,15 @@ func main() {
 	}
 
 	Diff(orgInfo, newInfo)
+}
+
+func TestDiffLines(t *testing.T) {
+	orgLines := strings.Split(
+		`
+`, "\n")
+	newLines := strings.Split(
+		`
+`, "\n")
+
+	DiffLines(orgLines, newLines, "%s")
 }
