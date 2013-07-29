@@ -6,11 +6,8 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
-	"github.com/daviddengcn/go-algs/ed"
-	"github.com/daviddengcn/go-colortext"
-	"github.com/daviddengcn/go-diff/tm"
-	"github.com/daviddengcn/go-villa"
 	"go/ast"
 	"go/parser"
 	"go/printer"
@@ -19,6 +16,11 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/daviddengcn/go-algs/ed"
+	"github.com/daviddengcn/go-colortext"
+	"github.com/daviddengcn/go-diff/tm"
+	"github.com/daviddengcn/go-villa"
 )
 
 func cat(a, sep, b string) string {
@@ -37,6 +39,22 @@ func max(a, b int) int {
 	return b
 }
 
+func changeColor(fg ct.Color, fgBright bool, bg ct.Color, bgBright bool) {
+	if gNoColor {
+		return
+	}
+
+	ct.ChangeColor(fg, fgBright, bg, bgBright)
+}
+
+func resetColor() {
+	if gNoColor {
+		return
+	}
+
+	ct.ResetColor()
+}
+
 func GreedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost func(int) int) (diffMat villa.IntMatrix, cost int, matA, matB []int) {
 	matA, matB = make([]int, lenA), make([]int, lenB)
 	villa.IntSlice(matA).Fill(0, lenA, -1)
@@ -47,11 +65,11 @@ func GreedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost fu
 	for iA := 0; iA < lenA; iA++ {
 		if matA[iA] >= 0 {
 			continue
-		} // if
+		}
 		for iB := 0; iB < lenB; iB++ {
 			if matB[iB] >= 0 {
 				continue
-			} // if
+			}
 
 			d := diffF(iA, iB)
 			diffMat[iA][iB] = d
@@ -59,9 +77,9 @@ func GreedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost fu
 			if d == 0 {
 				matA[iA], matB[iB] = iB, iA
 				break
-			} // if
-		} // for iB
-	} // for iA
+			}
+		}
+	}
 
 	mat := diffMat.Clone()
 	// mx is a number greater or equal to all mat elements (need not be the exact maximum)
@@ -883,35 +901,41 @@ func Parse(fn string, src interface{}) (*FileInfo, error) {
 }
 
 const (
+	// delete color
 	del_COLOR = ct.Red
+	// insert color
 	ins_COLOR = ct.Green
+	// matched color
+	mat_COLOR = ct.White
+	// folded color
+	fld_COLOR = ct.Yellow
 )
 
 func ShowDelWholeLine(line string) {
-	ct.ChangeColor(del_COLOR, false, ct.None, false)
+	changeColor(del_COLOR, false, ct.None, false)
 	fmt.Println("===", line)
-	ct.ResetColor()
+	resetColor()
 }
 func ShowDelLine(line string) {
-	ct.ChangeColor(del_COLOR, false, ct.None, false)
+	changeColor(del_COLOR, false, ct.None, false)
 	fmt.Println("---", line)
-	ct.ResetColor()
+	resetColor()
 }
 func ShowColorDelLine(line, lcs string) {
-	ct.ChangeColor(del_COLOR, false, ct.None, false)
+	changeColor(del_COLOR, false, ct.None, false)
 	fmt.Print("--- ")
 	lcsr := []rune(lcs)
 	for _, c := range line {
 		if len(lcsr) > 0 && lcsr[0] == c {
-			ct.ResetColor()
+			resetColor()
 			lcsr = lcsr[1:]
 		} else {
-			ct.ChangeColor(del_COLOR, false, ct.None, false)
+			changeColor(del_COLOR, false, ct.None, false)
 		} // else
 		fmt.Printf("%c", c)
 	} // for c
 
-	ct.ResetColor()
+	resetColor()
 	fmt.Println()
 }
 
@@ -934,32 +958,32 @@ func ShowDelLines(lines []string, gapLines int) {
 }
 
 func ShowInsLine(line string) {
-	ct.ChangeColor(ins_COLOR, false, ct.None, false)
+	changeColor(ins_COLOR, false, ct.None, false)
 	fmt.Println("+++", line)
-	ct.ResetColor()
+	resetColor()
 }
 func ShowColorInsLine(line, lcs string) {
-	ct.ChangeColor(ins_COLOR, false, ct.None, false)
+	changeColor(ins_COLOR, false, ct.None, false)
 	fmt.Print("+++ ")
 	lcsr := []rune(lcs)
 	for _, c := range line {
 		if len(lcsr) > 0 && lcsr[0] == c {
-			ct.ResetColor()
+			resetColor()
 			lcsr = lcsr[1:]
 		} else {
-			ct.ChangeColor(ins_COLOR, false, ct.None, false)
+			changeColor(ins_COLOR, false, ct.None, false)
 		} // else
 		fmt.Printf("%c", c)
 	} // for c
 
-	ct.ResetColor()
+	resetColor()
 	fmt.Println()
 }
 
 func ShowInsWholeLine(line string) {
-	ct.ChangeColor(ins_COLOR, false, ct.None, false)
+	changeColor(ins_COLOR, false, ct.None, false)
 	fmt.Println("###", line)
-	ct.ResetColor()
+	resetColor()
 }
 
 func ShowInsLines(lines []string, gapLines int) {
@@ -981,38 +1005,38 @@ func ShowInsLines(lines []string, gapLines int) {
 }
 
 func ShowDelTokens(del []string, mat []int, ins []string) {
-	ct.ChangeColor(del_COLOR, false, ct.None, false)
+	changeColor(del_COLOR, false, ct.None, false)
 	fmt.Print("--- ")
 
 	for i, tk := range del {
 		if mat[i] < 0 || tk != ins[mat[i]] {
-			ct.ChangeColor(del_COLOR, false, ct.None, false)
+			changeColor(del_COLOR, false, ct.None, false)
 		} else {
-			ct.ChangeColor(ct.White, false, ct.None, false)
-		} // else
+			changeColor(mat_COLOR, false, ct.None, false)
+		}
 
 		fmt.Print(tk)
 	} // for i
 
-	ct.ResetColor()
+	resetColor()
 	fmt.Println()
 }
 
 func ShowInsTokens(ins []string, mat []int, del []string) {
-	ct.ChangeColor(ins_COLOR, false, ct.None, false)
+	changeColor(ins_COLOR, false, ct.None, false)
 	fmt.Print("+++ ")
 
 	for i, tk := range ins {
 		if mat[i] < 0 || tk != del[mat[i]] {
-			ct.ChangeColor(ins_COLOR, false, ct.None, false)
+			changeColor(ins_COLOR, false, ct.None, false)
 		} else {
-			ct.ResetColor()
+			resetColor()
 		} // else
 
 		fmt.Print(tk)
 	} // for i
 
-	ct.ResetColor()
+	resetColor()
 	fmt.Println()
 }
 
@@ -1080,9 +1104,9 @@ func (lo *lineOutput) end() {
 			fmt.Println("   ", lo.sameLines[1])
 		} // if
 		if len(lo.sameLines) > 3 {
-			ct.ChangeColor(ct.Yellow, false, ct.None, false)
+			changeColor(fld_COLOR, false, ct.None, false)
 			fmt.Printf("        ... (%d lines)\n", len(lo.sameLines)-2)
-			ct.ResetColor()
+			resetColor()
 		} // if
 		if len(lo.sameLines) > 1 {
 			fmt.Println("   ", lo.sameLines[len(lo.sameLines)-1])
@@ -1102,9 +1126,9 @@ func DiffLines(orgLines, newLines []string, format string) {
 		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
 		return tm.CalcDiffOfSourceLine(sa, sb, (len(sa)+len(sb))*120)
 	}, func(iA int) int {
-		return max(1, len(strings.TrimSpace(orgLines[iA])) * 100)
+		return max(1, len(strings.TrimSpace(orgLines[iA]))*100)
 	}, func(iB int) int {
-		return max(1, len(strings.TrimSpace(newLines[iB])) * 100)
+		return max(1, len(strings.TrimSpace(newLines[iB]))*100)
 	})
 	var lo lineOutput
 
@@ -1283,13 +1307,28 @@ func readLines(fn villa.Path) []string {
 	return strings.Split(string(bts), "\n")
 }
 
+var (
+	gNoColor bool = false
+)
+
+func init() {
+	flag.BoolVar(&gNoColor, "no-color", gNoColor, "turn off the colors")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "go-diff [<options>] <new-filename> <org-filename>\n")
+		flag.PrintDefaults()
+	}
+}
+
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Println("Please specify the new/original files.", os.Args)
+	flag.Parse()
+
+	if flag.NArg() < 2 {
+		fmt.Println("Please specify the new/original files.")
 		return
 	} // if
-	newFn := os.Args[1]
-	orgFn := os.Args[2]
+	newFn := flag.Arg(0)
+	orgFn := flag.Arg(1)
 
 	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
 
