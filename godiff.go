@@ -224,7 +224,7 @@ func (f *Fragment) Weight() (w int) {
 func catLines(a []string, sep string, b []string) []string {
 	if len(a) > 0 && len(b) > 0 {
 		b[0] = cat(a[len(a)-1], sep, b[0])
-		a = a[0 : len(a)-1]
+		a = a[:len(a)-1]
 	} // if
 
 	return append(a, b...)
@@ -233,7 +233,7 @@ func catLines(a []string, sep string, b []string) []string {
 func appendLines(a []string, sep string, b ...string) []string {
 	if len(a) > 0 && len(b) > 0 {
 		b[0] = cat(a[len(a)-1], sep, b[0])
-		a = a[0 : len(a)-1]
+		a = a[:len(a)-1]
 	} // if
 
 	return append(a, b...)
@@ -308,10 +308,11 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
 		if f.Parts[0].(*Fragment) != nil {
 			lines = catLines(catLines(lines, " (", f.Parts[0].sourceLines(indent+"    ")), "", []string{")"}) // recv
 		} // if
-		lines = catLines(lines, " ", f.Parts[1].sourceLines(indent+"    "))                                                          // name
-		lines = catLines(catLines(catLines(lines, "", []string{"("}), "", f.Parts[2].sourceLines(indent+"    ")), "", []string{")"}) // params
-		lines = catLines(lines, " ", f.Parts[3].sourceLines(indent+"    "))                                                          // returns
-		lines = catLines(lines, " ", f.Parts[4].sourceLines(indent))                                                                 // body
+		lines = catLines(lines, " ", f.Parts[1].sourceLines(indent+"    ")) // name
+		lines = catLines(catLines(catLines(lines, "", []string{"("}), "",
+			f.Parts[2].sourceLines(indent+"    ")), "", []string{")"}) // params
+		lines = catLines(lines, " ", f.Parts[3].sourceLines(indent+"    ")) // returns
+		lines = catLines(lines, " ", f.Parts[4].sourceLines(indent))        // body
 	case DF_RESULTS:
 		if len(f.Parts) > 0 {
 			if len(f.Parts) > 1 || len(f.Parts[0].(*Fragment).Parts[0].(*StringFrag).source) > 0 {
@@ -334,15 +335,19 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
 		} // for p
 		lines = append(lines, indent+"}")
 	case DF_STRUCT, DF_INTERFACE:
-		lines = append(lines, TYPE_NAMES[f.tp]+" {")
-		for _, p := range f.Parts {
-			lns := p.sourceLines(indent + "    ")
-			if len(lns) > 0 {
-				lns[0] = indent + "    " + lns[0]
-				lines = append(lines, lns...)
-			} // if
-		} // for p
-		lines = append(lines, indent+"}")
+		if len(f.Parts) == 0 {
+			lines = append(lines, TYPE_NAMES[f.tp]+"{}")
+		} else {
+			lines = append(lines, TYPE_NAMES[f.tp]+" {")
+			for _, p := range f.Parts {
+				lns := p.sourceLines(indent + "    ")
+				if len(lns) > 0 {
+					lns[0] = indent + "    " + lns[0]
+					lines = append(lines, lns...)
+				} // if
+			} // for p
+			lines = append(lines, indent+"}")
+		}
 	case DF_STAR:
 		lines = append(lines, TYPE_NAMES[f.tp])
 		lines = catLines(lines, "", f.Parts[0].sourceLines(indent))
@@ -496,11 +501,15 @@ func newNameTypes(fs *token.FileSet, fl *ast.FieldList) (dfs []DiffFragment) {
 	for _, f := range fl.List {
 		if len(f.Names) > 0 {
 			for _, name := range f.Names {
-				dfs = append(dfs, &Fragment{tp: DF_PAIR, Parts: []DiffFragment{newStringFrag(name.String(), 100), newTypeDef(fs, f.Type)}})
+				dfs = append(dfs, &Fragment{tp: DF_PAIR,
+					Parts: []DiffFragment{newStringFrag(name.String(), 100),
+						newTypeDef(fs, f.Type)}})
 			} // for name
 		} else {
 			// embedding
-			dfs = append(dfs, &Fragment{tp: DF_PAIR, Parts: []DiffFragment{newStringFrag("", 50), newTypeDef(fs, f.Type)}})
+			dfs = append(dfs, &Fragment{tp: DF_PAIR,
+				Parts: []DiffFragment{newStringFrag("", 50),
+					newTypeDef(fs, f.Type)}})
 		} // else
 	} // for f
 
@@ -549,8 +558,9 @@ func newVarSpecs(fs *token.FileSet, specs []ast.Spec) (dfs []DiffFragment) {
 		names := &Fragment{tp: DF_NAMES}
 		sp := spec.(*ast.ValueSpec)
 		for _, name := range sp.Names {
-			names.Parts = append(names.Parts, &StringFrag{weight: 100, source: fmt.Sprint(name)})
-		} // for name
+			names.Parts = append(names.Parts, &StringFrag{weight: 100,
+				source: fmt.Sprint(name)})
+		}
 		f.Parts = append(f.Parts, names)
 
 		if sp.Type != nil {
@@ -566,7 +576,7 @@ func newVarSpecs(fs *token.FileSet, specs []ast.Spec) (dfs []DiffFragment) {
 		f.Parts = append(f.Parts, values)
 
 		dfs = append(dfs, f)
-	} // for spec
+	}
 
 	return dfs
 }
@@ -814,7 +824,8 @@ func newFuncDecl(fs *token.FileSet, d *ast.FuncDecl) (f *Fragment) {
 
 	//  params
 	if d.Type.Params != nil {
-		f.Parts = append(f.Parts, &Fragment{tp: DF_NAMES, Parts: newNameTypes(fs, d.Type.Params)})
+		f.Parts = append(f.Parts, &Fragment{tp: DF_VALUES,
+			Parts: newNameTypes(fs, d.Type.Params)})
 	} else {
 		f.Parts = append(f.Parts, (*Fragment)(nil))
 	} // else

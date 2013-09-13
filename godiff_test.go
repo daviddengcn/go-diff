@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/daviddengcn/go-algs/ed"
-	"github.com/daviddengcn/go-diff/tm"
-	"github.com/daviddengcn/go-villa"
 	"strings"
 	"testing"
+
+	"github.com/daviddengcn/go-algs/ed"
+	"github.com/daviddengcn/go-assert"
+	"github.com/daviddengcn/go-diff/tm"
+	"github.com/daviddengcn/go-villa"
 )
 
 func TestDiffLine(t *testing.T) {
@@ -91,4 +93,24 @@ func TestDiffLines(t *testing.T) {
 `, "\n")
 
 	DiffLines(orgLines, newLines, "%s")
+}
+
+func TestBug_func_params(t *testing.T) {
+	p, err := Parse("", `
+package main
+var i, j   interface { }
+func foo(i, j interface{}) {
+}
+`)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.LinesEqual(t, "func foo", p.funcs.Parts[0].sourceLines(""), []string{
+		"func foo(i interface{}, j interface{}) {",
+		"}",
+	})
+	assert.LinesEqual(t, "var", p.vars.Parts[0].sourceLines(""), []string{
+		"var i, j interface{}",
+	})
 }
