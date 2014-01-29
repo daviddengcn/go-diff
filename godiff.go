@@ -1,6 +1,11 @@
 /*
-	go-diff is a tool checking semantic difference between go files. If parsing
-	is failed for either file, a line-to-line comparing is imposed.
+	go-diff is a tool checking semantic difference between source files.
+
+	Currently supported language:
+		Go fully
+
+	If the language is not supported or parsing is failed for either file,
+	a line-to-line comparing is imposed.
 */
 package main
 
@@ -260,17 +265,17 @@ func insertIndent2(indent string, lines []string) []string {
 func (f *Fragment) oneLine() string {
 	if f == nil {
 		return ""
-	} // if
+	}
 	switch f.tp {
-	} // switch
+	}
 	lines := f.sourceLines("")
 	if len(lines) == 0 {
 		return ""
-	} // if
+	}
 
 	if len(lines) == 1 {
 		return lines[0]
-	} // if
+	}
 
 	return lines[0] + " ... " + lines[len(lines)-1] + fmt.Sprintf(" (%d lines)", len(lines))
 }
@@ -1127,28 +1132,54 @@ func (lo *lineOutput) end() {
 	lo.sameLines = nil
 }
 
+func offsetHeadTails(orgLines, newLines []string) (start, orgEnd, newEnd int) {
+	start = 0
+	for start < len(orgLines) && start < len(newLines) && orgLines[start] == newLines[start] {
+		start++
+	}
+
+	orgEnd, newEnd = len(orgLines), len(newLines)
+	for orgEnd > start && newEnd > start && orgLines[orgEnd-1] == newLines[newEnd-1] {
+		orgEnd--
+		newEnd--
+	}
+	return
+}
+
 func DiffLines(orgLines, newLines []string, format string) {
 	if len(orgLines)+len(newLines) == 0 {
 		return
-	} // if
+	}
 
-	_, matA, matB := ed.EditDistanceFFull(len(orgLines), len(newLines), func(iA, iB int) int {
-		sa, sb := strings.TrimSpace(orgLines[iA]), strings.TrimSpace(newLines[iB])
+	start, orgEnd, newEnd := 0, len(orgLines), len(newLines)
+
+	if len(orgLines)*len(newLines) > 1024*1024 {
+		// Use trivial comparison to offset same head and tail lines.
+		start, orgEnd, newEnd = offsetHeadTails(orgLines, newLines)
+	}
+
+	_, matA, matB := ed.EditDistanceFFull(orgEnd-start, newEnd-start, func(iA, iB int) int {
+		sa, sb := strings.TrimSpace(orgLines[iA+start]), strings.TrimSpace(newLines[iB+start])
 		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
 		return tm.CalcDiffOfSourceLine(sa, sb, (len(sa)+len(sb))*120)
 	}, func(iA int) int {
-		return max(1, len(strings.TrimSpace(orgLines[iA]))*100)
+		return max(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
 	}, func(iB int) int {
-		return max(1, len(strings.TrimSpace(newLines[iB]))*100)
+		return max(1, len(strings.TrimSpace(newLines[iB+start]))*100)
 	})
 	var lo lineOutput
 
 	for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
 		switch {
-		case j >= len(newLines) || i < len(orgLines) && matA[i] < 0:
+		case i < start || i >= orgEnd && j >= newEnd:
+			// cut by offsetHeadTails
+			lo.outputSame(fmt.Sprintf(format, newLines[j]))
+			i++
+			j++
+		case j >= newEnd || i < orgEnd && matA[i-start] < 0:
 			lo.outputDel(fmt.Sprintf(format, orgLines[i]))
 			i++
-		case i >= len(orgLines) || j < len(newLines) && matB[j] < 0:
+		case i >= orgEnd || j < newEnd && matB[j-start] < 0:
 			lo.outputIns(fmt.Sprintf(format, newLines[j]))
 			j++
 		default:
@@ -1160,7 +1191,7 @@ func DiffLines(orgLines, newLines []string, format string) {
 			i++
 			j++
 		}
-	} // for i, j
+	}
 	lo.end()
 }
 
