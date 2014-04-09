@@ -1146,9 +1146,12 @@ func offsetHeadTails(orgLines, newLines []string) (start, orgEnd, newEnd int) {
 	return
 }
 
-func DiffLines(orgLines, newLines []string, format string) {
+/*
+  Returns the number operation lines.
+*/
+func DiffLines(orgLines, newLines []string, format string) int {
 	if len(orgLines)+len(newLines) == 0 {
-		return
+		return 0
 	}
 
 	start, orgEnd, newEnd := 0, len(orgLines), len(newLines)
@@ -1160,14 +1163,22 @@ func DiffLines(orgLines, newLines []string, format string) {
 
 	_, matA, matB := ed.EditDistanceFFull(orgEnd-start, newEnd-start, func(iA, iB int) int {
 		sa, sb := strings.TrimSpace(orgLines[iA+start]), strings.TrimSpace(newLines[iB+start])
+		if sa == sb {
+			return 0
+		}
 		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
-		return tm.CalcDiffOfSourceLine(sa, sb, (len(sa)+len(sb))*120)
+		mx := (len(sa) + len(sb)) * 120
+		dist := tm.CalcDiffOfSourceLine(sa, sb, mx)
+		// Even a small change, both lines will be shown, so add a 10% penaty on that.
+		return (dist*9 + mx)/10
 	}, func(iA int) int {
 		return max(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
 	}, func(iB int) int {
 		return max(1, len(strings.TrimSpace(newLines[iB+start]))*100)
 	})
+	
 	var lo lineOutput
+	cnt := 0
 
 	for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
 		switch {
@@ -1178,13 +1189,16 @@ func DiffLines(orgLines, newLines []string, format string) {
 			j++
 		case j >= newEnd || i < orgEnd && matA[i-start] < 0:
 			lo.outputDel(fmt.Sprintf(format, orgLines[i]))
+			cnt++
 			i++
 		case i >= orgEnd || j < newEnd && matB[j-start] < 0:
 			lo.outputIns(fmt.Sprintf(format, newLines[j]))
+			cnt++
 			j++
 		default:
 			if strings.TrimSpace(orgLines[i]) != strings.TrimSpace(newLines[j]) {
 				lo.outputChange(fmt.Sprintf(format, orgLines[i]), fmt.Sprintf(format, newLines[j]))
+				cnt += 2
 			} else {
 				lo.outputSame(fmt.Sprintf(format, newLines[j]))
 			} // else
@@ -1193,6 +1207,7 @@ func DiffLines(orgLines, newLines []string, format string) {
 		}
 	}
 	lo.end()
+	return cnt
 }
 
 /*

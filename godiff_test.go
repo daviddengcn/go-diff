@@ -114,3 +114,18 @@ func foo(i, j interface{}) {
 		"var i, j interface{}",
 	})
 }
+
+func TestBug_Match(t *testing.T) {
+	orgLines := strings.Split(
+`import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.junit.After;`, "\n")
+	newLines := strings.Split(
+`import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.StringBytes;
+import org.junit.After;`, "\n")
+
+	cnt := DiffLines(orgLines, newLines, "%s")
+	assert.Equals(t, "Number of different lines", cnt , 1)
+}
