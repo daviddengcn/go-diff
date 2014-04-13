@@ -1185,14 +1185,15 @@ func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) in
 		
 		var dist int
 		
-		if len(sa) > 10*len(sb) {
+		if fastMode && len(sa) > 10*len(sb) {
 			dist = 100 * (len(sa) - len(sb))
-		} else if len(sb) > 10*len(sa) {
+		} else if fastMode && len(sb) > 10*len(sa) {
 			dist = 100 * (len(sb) - len(sa))
+		} else {
+			// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
+			dist = tm.CalcDiffOfSourceLine(sa, sb, mx)
 		}
-		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
-		dist = tm.CalcDiffOfSourceLine(sa, sb, mx)
-		// Even a small change, both lines will be shown, so add a 10% penaty on that.
+		// Even a small change, both lines will be shown, so add a 10% penalty on that.
 		return (dist*9 + mx)/10 + 1
 	}, func(iA int) int {
 		return max(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
