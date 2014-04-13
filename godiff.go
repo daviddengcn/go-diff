@@ -1090,6 +1090,14 @@ func DiffLineSet(orgLines, newLines []string, format string) {
 	} // for i, j
 }
 
+type LineOutputer interface {
+	outputIns(line string)
+	outputDel(line string)
+	outputSame(line string)
+	outputChange(del, ins string)
+	end()
+}
+
 type lineOutput struct {
 	sameLines []string
 }
@@ -1146,10 +1154,7 @@ func offsetHeadTails(orgLines, newLines []string) (start, orgEnd, newEnd int) {
 	return
 }
 
-/*
-  Returns the number operation lines.
-*/
-func DiffLines(orgLines, newLines []string, format string) int {
+func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) int {
 	if len(orgLines)+len(newLines) == 0 {
 		return 0
 	}
@@ -1162,12 +1167,16 @@ func DiffLines(orgLines, newLines []string, format string) int {
 	}
 
 	_, matA, matB := ed.EditDistanceFFull(orgEnd-start, newEnd-start, func(iA, iB int) int {
-		sa, sb := strings.TrimSpace(orgLines[iA+start]), strings.TrimSpace(newLines[iB+start])
+		sa, sb := orgLines[iA+start], newLines[iB+start]
 		if sa == sb {
 			return 0
 		}
+		sa, sb = strings.TrimSpace(sa), strings.TrimSpace(sb)
+		if sa == sb {
+			return 1
+		}
 		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
-		mx := (len(sa) + len(sb)) * 120
+		mx := (len(sa) + len(sb)) * 100
 		dist := tm.CalcDiffOfSourceLine(sa, sb, mx)
 		// Even a small change, both lines will be shown, so add a 10% penaty on that.
 		return (dist*9 + mx)/10
@@ -1177,7 +1186,6 @@ func DiffLines(orgLines, newLines []string, format string) int {
 		return max(1, len(strings.TrimSpace(newLines[iB+start]))*100)
 	})
 	
-	var lo lineOutput
 	cnt := 0
 
 	for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
@@ -1208,6 +1216,13 @@ func DiffLines(orgLines, newLines []string, format string) int {
 	}
 	lo.end()
 	return cnt
+}
+
+/*
+  Returns the number of operation lines.
+*/
+func DiffLines(orgLines, newLines []string, format string) int {
+	return DiffLinesTo(orgLines, newLines, format, &lineOutput{})
 }
 
 /*

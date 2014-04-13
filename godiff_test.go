@@ -96,6 +96,7 @@ func TestDiffLines(t *testing.T) {
 }
 
 func TestBug_func_params(t *testing.T) {
+	fmt.Println("====")
 	p, err := Parse("", `
 package main
 var i, j   interface { }
@@ -116,6 +117,7 @@ func foo(i, j interface{}) {
 }
 
 func TestBug_Match(t *testing.T) {
+	fmt.Println("====")
 	orgLines := strings.Split(
 `import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -128,4 +130,48 @@ import org.junit.After;`, "\n")
 
 	cnt := DiffLines(orgLines, newLines, "%s")
 	assert.Equals(t, "Number of different lines", cnt , 1)
+}
+
+type OutputSaver struct {
+	deleted []string
+	inserted []string
+}
+
+func (os *OutputSaver) outputIns(line string) {
+	os.inserted = append(os.inserted, line)
+	fmt.Println("INSERT", line)
+}
+
+func (os *OutputSaver) outputDel(line string) {
+	os.deleted = append(os.deleted, line)
+	fmt.Println("DELETE", line)
+}
+
+func (os *OutputSaver) outputSame(line string) {
+}
+
+func (os *OutputSaver) outputChange(del, ins string) {
+	os.outputDel(del)
+	os.outputIns(ins)
+	fmt.Println(del, "->", ins)
+}
+
+func (os *OutputSaver) end() {
+}
+
+func TestTrimDiff(t *testing.T) {
+	orgLines := strings.Split(
+` {
+}`, "\n")
+	newLines := strings.Split(
+` {
+	}
+}`, "\n")
+	var os OutputSaver
+
+	cnt := DiffLinesTo(orgLines, newLines, "%s", &os)
+	assert.Equals(t, "Number of different lines", cnt , 2)
+	
+	assert.LinesEqual(t, "inserted", os.inserted, []string{"	}"})
+	assert.LinesEqual(t, "deleted", os.deleted, []string{})
 }
