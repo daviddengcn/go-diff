@@ -1165,6 +1165,11 @@ func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) in
 		// Use trivial comparison to offset same head and tail lines.
 		start, orgEnd, newEnd = offsetHeadTails(orgLines, newLines)
 	}
+	
+	fastMode := false
+	if len(orgLines)*len(newLines) > 1024*1024 {
+		fastMode = true
+	}
 
 	_, matA, matB := ed.EditDistanceFFull(orgEnd-start, newEnd-start, func(iA, iB int) int {
 		sa, sb := orgLines[iA+start], newLines[iB+start]
@@ -1175,11 +1180,20 @@ func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) in
 		if sa == sb {
 			return 1
 		}
-		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
+		
 		mx := (len(sa) + len(sb)) * 100
-		dist := tm.CalcDiffOfSourceLine(sa, sb, mx)
+		
+		var dist int
+		
+		if len(sa) > 10*len(sb) {
+			dist = 100 * (len(sa) - len(sb))
+		} else if len(sb) > 10*len(sa) {
+			dist = 100 * (len(sb) - len(sa))
+		}
+		// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
+		dist = tm.CalcDiffOfSourceLine(sa, sb, mx)
 		// Even a small change, both lines will be shown, so add a 10% penaty on that.
-		return (dist*9 + mx)/10
+		return (dist*9 + mx)/10 + 1
 	}, func(iA int) int {
 		return max(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
 	}, func(iB int) int {
