@@ -119,21 +119,21 @@ func foo(i, j interface{}) {
 func TestBug_Match(t *testing.T) {
 	fmt.Println("====")
 	orgLines := strings.Split(
-`import org.apache.hadoop.hbase.regionserver.HRegion;
+		`import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.After;`, "\n")
 	newLines := strings.Split(
-`import org.apache.hadoop.hbase.regionserver.HRegion;
+		`import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.StringBytes;
 import org.junit.After;`, "\n")
 
 	cnt := DiffLines(orgLines, newLines, "%s")
-	assert.Equals(t, "Number of different lines", cnt , 1)
+	assert.Equals(t, "Number of different lines", cnt, 1)
 }
 
 type OutputSaver struct {
-	deleted []string
+	deleted  []string
 	inserted []string
 }
 
@@ -161,17 +161,47 @@ func (os *OutputSaver) end() {
 
 func TestTrimDiff(t *testing.T) {
 	orgLines := strings.Split(
-` {
+		` {
 }`, "\n")
 	newLines := strings.Split(
-` {
+		` {
 	}
 }`, "\n")
 	var os OutputSaver
 
 	cnt := DiffLinesTo(orgLines, newLines, "%s", &os)
-	assert.Equals(t, "Number of different lines", cnt , 2)
-	
+	assert.Equals(t, "Number of different lines", cnt, 1)
+
 	assert.LinesEqual(t, "inserted", os.inserted, []string{"	}"})
+	assert.LinesEqual(t, "deleted", os.deleted, []string{})
+}
+
+func TestMatching_1(t *testing.T) {
+	fmt.Println("====")
+	orgLines := strings.Split(
+		` {
+	T create();
+}`, "\n")
+	newLines := strings.Split(
+		` {
+	T create();
+
+	/**
+	 * @return the class of the interface of this endpont.
+	 */
+	Class<T> getEndpointInterfaceClasss();
+}`, "\n")
+	var os OutputSaver
+
+	cnt := DiffLinesTo(orgLines, newLines, "%s", &os)
+	assert.Equals(t, "Number of different lines", cnt, 5)
+
+	assert.LinesEqual(t, "inserted", os.inserted, []string{
+		"",
+		"	/**",
+		"	 * @return the class of the interface of this endpont.",
+		"	 */",
+		"	Class<T> getEndpointInterfaceClasss();",
+	})
 	assert.LinesEqual(t, "deleted", os.deleted, []string{})
 }

@@ -1165,7 +1165,7 @@ func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) in
 		// Use trivial comparison to offset same head and tail lines.
 		start, orgEnd, newEnd = offsetHeadTails(orgLines, newLines)
 	}
-	
+
 	fastMode := false
 	if len(orgLines)*len(newLines) > 1024*1024 {
 		fastMode = true
@@ -1180,11 +1180,11 @@ func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) in
 		if sa == sb {
 			return 1
 		}
-		
-		mx := (len(sa) + len(sb)) * 100
-		
+
+		mx := (len(sa) + len(sb)) * 150
+
 		var dist int
-		
+
 		if fastMode && len(sa) > 10*len(sb) {
 			dist = 100 * (len(sa) - len(sb))
 		} else if fastMode && len(sb) > 10*len(sa) {
@@ -1194,13 +1194,13 @@ func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) in
 			dist = tm.CalcDiffOfSourceLine(sa, sb, mx)
 		}
 		// Even a small change, both lines will be shown, so add a 10% penalty on that.
-		return (dist*9 + mx)/10 + 1
+		return (dist*9+mx)/10 + 1
 	}, func(iA int) int {
 		return max(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
 	}, func(iB int) int {
 		return max(1, len(strings.TrimSpace(newLines[iB+start]))*100)
 	})
-	
+
 	cnt := 0
 
 	for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
