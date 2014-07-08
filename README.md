@@ -1,4 +1,4 @@
-go-diff
+go-diff [![GoSearch](http://go-search.org/badge?id=github.com%2Fdaviddengcn%2Fgo-diff)](http://go-search.org/view?id=github.com%2Fdaviddengcn%2Fgo-diff)
 =======
 
 A diff tool for [Go languange](http://golang.org/). It shows the semantic differences between two Go source files.
