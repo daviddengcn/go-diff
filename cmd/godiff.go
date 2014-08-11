@@ -230,16 +230,25 @@ func catLines(a []string, sep string, b []string) []string {
 	if len(a) > 0 && len(b) > 0 {
 		b[0] = cat(a[len(a)-1], sep, b[0])
 		a = a[:len(a)-1]
-	} // if
+	}
 
 	return append(a, b...)
 }
 
+/*
+ a[0]
+ a[1]
+  ...
+ cat(a[end], sep, b[0])
+ b[1]
+  ...
+ b[end]
+ */
 func appendLines(a []string, sep string, b ...string) []string {
 	if len(a) > 0 && len(b) > 0 {
 		b[0] = cat(a[len(a)-1], sep, b[0])
 		a = a[:len(a)-1]
-	} // if
+	}
 
 	return append(a, b...)
 }
@@ -713,16 +722,21 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 	case *ast.CompositeLit:
 		if nd.Type != nil {
 			lines = append(lines, printToLines(fs, nd.Type)...)
-		} // if
-		lines = appendLines(lines, "", "{")
-
-		for i, el := range nd.Elts {
-			if i > 0 {
-				lines = appendLines(lines, "", ", ")
-			} // if
-			lines = append(lines, insertIndent("    ", nodeToLines(fs, el))...)
-		} // for i, el
-		lines = appendLines(lines, "", "}")
+		}
+		if len(nd.Elts) == 0 {
+			// short form
+			lines = appendLines(lines, "", "{}")
+		} else {
+			lines = appendLines(lines, "", "{")
+	
+			for _, el := range nd.Elts {
+				lines = append(lines, insertIndent("    ", nodeToLines(fs, el))...)
+				lines = appendLines(lines, "", ",")
+			}
+			// put } in a new line
+			lines = append(lines, "")
+			lines = appendLines(lines, "", "}")
+		}
 
 	case *ast.UnaryExpr:
 		lines = append(lines, nd.Op.String())
@@ -904,6 +918,15 @@ func (info *FileInfo) collect() {
 }
 
 func Parse(fn string, src interface{}) (*FileInfo, error) {
+	if fn == "/dev/null" {
+		return &FileInfo{
+			f: &ast.File {},
+			types: &Fragment{},
+			vars: &Fragment{},
+			funcs: &Fragment{},
+		}, nil
+	}
+	
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, fn, src, 0)
 	if err != nil {
@@ -1410,6 +1433,7 @@ func init() {
 }
 
 func Exec(orgFn, newFn string, options Options) {
+	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
 	gOptions = options
 	
 	orgInfo, err1 := Parse(orgFn, nil)

@@ -10,15 +10,15 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 
 	"github.com/daviddengcn/go-diff/cmd"
 )
 
 func main() {
 	var options godiff.Options
-	
+
 	flag.BoolVar(&options.NoColor, "no-color", false, "turn off the colors")
 
 	flag.Parse()
@@ -30,6 +30,5 @@ func main() {
 	orgFn := flag.Arg(0)
 	newFn := flag.Arg(1)
 
-	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
 	godiff.Exec(orgFn, newFn, options)
 }
