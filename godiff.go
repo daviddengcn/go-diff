@@ -45,7 +45,7 @@ func max(a, b int) int {
 }
 
 func changeColor(fg ct.Color, fgBright bool, bg ct.Color, bgBright bool) {
-	if gNoColor {
+	if gOptions.NoColor {
 		return
 	}
 
@@ -53,7 +53,7 @@ func changeColor(fg ct.Color, fgBright bool, bg ct.Color, bgBright bool) {
 }
 
 func resetColor() {
-	if gNoColor {
+	if gOptions.NoColor {
 		return
 	}
 
@@ -1394,31 +1394,24 @@ func readLines(fn villa.Path) []string {
 	return strings.Split(string(bts), "\n")
 }
 
+type Options struct {
+	NoColor bool
+}
+
 var (
-	gNoColor bool = false
+	gOptions Options
 )
 
 func init() {
-	flag.BoolVar(&gNoColor, "no-color", gNoColor, "turn off the colors")
-
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "go-diff [<options>] <new-filename> <org-filename>\n")
+		fmt.Fprintf(os.Stderr, "go-diff [<options>] <org-filename> <new-filename>\n")
 		flag.PrintDefaults()
 	}
 }
 
-func main() {
-	flag.Parse()
-
-	if flag.NArg() < 2 {
-		fmt.Println("Please specify the new/original files.")
-		return
-	} // if
-	newFn := flag.Arg(0)
-	orgFn := flag.Arg(1)
-
-	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
-
+func Exec(orgFn, newFn string, options Options) {
+	gOptions = options
+	
 	orgInfo, err1 := Parse(orgFn, nil)
 	newInfo, err2 := Parse(newFn, nil)
 
@@ -1431,4 +1424,22 @@ func main() {
 	}
 
 	Diff(orgInfo, newInfo)
+}
+
+func main() {
+	var options Options
+	
+	flag.BoolVar(&options.NoColor, "no-color", false, "turn off the colors")
+
+	flag.Parse()
+
+	if flag.NArg() < 2 {
+		fmt.Println("Please specify the new/original files.")
+		return
+	} // if
+	orgFn := flag.Arg(0)
+	newFn := flag.Arg(1)
+
+	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
+	Exec(orgFn, newFn, options)
 }
