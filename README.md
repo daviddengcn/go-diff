@@ -30,7 +30,7 @@ $ go-diff <old-file> <new-file>
 
 <b>Used as git diff</b>
 
-1. Link `scripts/go-diff.gs` (if you need install [gosl](http://github.com/daviddengcn/gosl)) or `scripts/go-diff.sh` to a folder in `PATH`
+1. Link `scripts/go-diff.gs` (you need install [gosl](http://github.com/daviddengcn/gosl)) or `scripts/go-diff.sh` to a folder in `PATH`
 
 1. Set Git external diff driver (change `go-diff.gs` to `go-diff.sh` accordingly if necessary)
 
