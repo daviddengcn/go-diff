@@ -243,7 +243,7 @@ func catLines(a []string, sep string, b []string) []string {
  b[1]
   ...
  b[end]
- */
+*/
 func appendLines(a []string, sep string, b ...string) []string {
 	if len(a) > 0 && len(b) > 0 {
 		b[0] = cat(a[len(a)-1], sep, b[0])
@@ -728,7 +728,7 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 			lines = appendLines(lines, "", "{}")
 		} else {
 			lines = appendLines(lines, "", "{")
-	
+
 			for _, el := range nd.Elts {
 				lines = append(lines, insertIndent("    ", nodeToLines(fs, el))...)
 				lines = appendLines(lines, "", ",")
@@ -920,13 +920,13 @@ func (info *FileInfo) collect() {
 func Parse(fn string, src interface{}) (*FileInfo, error) {
 	if fn == "/dev/null" {
 		return &FileInfo{
-			f: &ast.File {},
+			f:     &ast.File{},
 			types: &Fragment{},
-			vars: &Fragment{},
+			vars:  &Fragment{},
 			funcs: &Fragment{},
 		}, nil
 	}
-	
+
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, fn, src, 0)
 	if err != nil {
@@ -1435,7 +1435,7 @@ func init() {
 func Exec(orgFn, newFn string, options Options) {
 	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
 	gOptions = options
-	
+
 	orgInfo, err1 := Parse(orgFn, nil)
 	newInfo, err2 := Parse(newFn, nil)
 
