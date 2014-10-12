@@ -2,7 +2,8 @@
 	go-diff is a tool checking semantic difference between source files.
 
 	Currently supported language:
-		Go fully
+
+	- Go (fully)
 
 	If the language is not supported or parsing is failed for either file,
 	a line-to-line comparing is imposed.

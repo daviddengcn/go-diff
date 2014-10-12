@@ -3,7 +3,7 @@
 
 	Currently supported language:
 
-	- Go
+	- Go (fully)
 
 	If the language is not supported or parsing is failed for either file,
 	a line-to-line comparing is imposed.
