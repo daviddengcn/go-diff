@@ -11,14 +11,12 @@ package godiff
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
 	"math"
-	"os"
 	"sort"
 	"strings"
 
@@ -1424,13 +1422,6 @@ type Options struct {
 var (
 	gOptions Options
 )
-
-func init() {
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "go-diff [<options>] <org-filename> <new-filename>\n")
-		flag.PrintDefaults()
-	}
-}
 
 func Exec(orgFn, newFn string, options Options) {
 	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
