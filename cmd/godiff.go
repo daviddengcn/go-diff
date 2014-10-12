@@ -16,7 +16,9 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"io"
 	"math"
+	"os"
 	"sort"
 	"strings"
 
@@ -902,7 +904,7 @@ func (info *FileInfo) collect() {
 				// ignore
 			default:
 				// Unknow
-				fmt.Println(d)
+				fmt.Fprintln(out, d)
 			} // switch d.tok
 		case *ast.FuncDecl:
 			//fmt.Printf("%#v\n", d)
@@ -950,17 +952,17 @@ const (
 
 func ShowDelWholeLine(line string) {
 	changeColor(del_COLOR, false, ct.None, false)
-	fmt.Println("===", line)
+	fmt.Fprintln(out, "===", line)
 	resetColor()
 }
 func ShowDelLine(line string) {
 	changeColor(del_COLOR, false, ct.None, false)
-	fmt.Println("---", line)
+	fmt.Fprintln(out, "---", line)
 	resetColor()
 }
 func ShowColorDelLine(line, lcs string) {
 	changeColor(del_COLOR, false, ct.None, false)
-	fmt.Print("--- ")
+	fmt.Fprint(out, "--- ")
 	lcsr := []rune(lcs)
 	for _, c := range line {
 		if len(lcsr) > 0 && lcsr[0] == c {
@@ -969,11 +971,11 @@ func ShowColorDelLine(line, lcs string) {
 		} else {
 			changeColor(del_COLOR, false, ct.None, false)
 		} // else
-		fmt.Printf("%c", c)
+		fmt.Fprintf(out, "%c", c)
 	} // for c
 
 	resetColor()
-	fmt.Println()
+	fmt.Fprintln(out)
 }
 
 func ShowDelLines(lines []string, gapLines int) {
@@ -996,12 +998,12 @@ func ShowDelLines(lines []string, gapLines int) {
 
 func ShowInsLine(line string) {
 	changeColor(ins_COLOR, false, ct.None, false)
-	fmt.Println("+++", line)
+	fmt.Fprintln(out, "+++", line)
 	resetColor()
 }
 func ShowColorInsLine(line, lcs string) {
 	changeColor(ins_COLOR, false, ct.None, false)
-	fmt.Print("+++ ")
+	fmt.Fprint(out, "+++ ")
 	lcsr := []rune(lcs)
 	for _, c := range line {
 		if len(lcsr) > 0 && lcsr[0] == c {
@@ -1010,16 +1012,16 @@ func ShowColorInsLine(line, lcs string) {
 		} else {
 			changeColor(ins_COLOR, false, ct.None, false)
 		} // else
-		fmt.Printf("%c", c)
+		fmt.Fprintf(out, "%c", c)
 	} // for c
 
 	resetColor()
-	fmt.Println()
+	fmt.Fprintln(out)
 }
 
 func ShowInsWholeLine(line string) {
 	changeColor(ins_COLOR, false, ct.None, false)
-	fmt.Println("###", line)
+	fmt.Fprintln(out, "###", line)
 	resetColor()
 }
 
@@ -1043,7 +1045,7 @@ func ShowInsLines(lines []string, gapLines int) {
 
 func ShowDelTokens(del []string, mat []int, ins []string) {
 	changeColor(del_COLOR, false, ct.None, false)
-	fmt.Print("--- ")
+	fmt.Fprint(out, "--- ")
 
 	for i, tk := range del {
 		if mat[i] < 0 || tk != ins[mat[i]] {
@@ -1052,16 +1054,16 @@ func ShowDelTokens(del []string, mat []int, ins []string) {
 			changeColor(mat_COLOR, false, ct.None, false)
 		}
 
-		fmt.Print(tk)
+		fmt.Fprint(out, tk)
 	} // for i
 
 	resetColor()
-	fmt.Println()
+	fmt.Fprintln(out)
 }
 
 func ShowInsTokens(ins []string, mat []int, del []string) {
 	changeColor(ins_COLOR, false, ct.None, false)
-	fmt.Print("+++ ")
+	fmt.Fprint(out, "+++ ")
 
 	for i, tk := range ins {
 		if mat[i] < 0 || tk != del[mat[i]] {
@@ -1070,11 +1072,11 @@ func ShowInsTokens(ins []string, mat []int, del []string) {
 			resetColor()
 		} // else
 
-		fmt.Print(tk)
+		fmt.Fprint(out, tk)
 	} // for i
 
 	resetColor()
-	fmt.Println()
+	fmt.Fprintln(out)
 }
 
 func ShowDiffLine(del, ins string) {
@@ -1144,17 +1146,17 @@ func (lo *lineOutput) outputSame(line string) {
 
 func (lo *lineOutput) end() {
 	if len(lo.sameLines) > 0 {
-		fmt.Println("   ", lo.sameLines[0])
+		fmt.Fprintln(out, "   ", lo.sameLines[0])
 		if len(lo.sameLines) == 3 {
-			fmt.Println("   ", lo.sameLines[1])
+			fmt.Fprintln(out, "   ", lo.sameLines[1])
 		} // if
 		if len(lo.sameLines) > 3 {
 			changeColor(fld_COLOR, false, ct.None, false)
-			fmt.Printf("        ... (%d lines)\n", len(lo.sameLines)-2)
+			fmt.Fprintf(out, "        ... (%d lines)\n", len(lo.sameLines)-2)
 			resetColor()
 		} // if
 		if len(lo.sameLines) > 1 {
-			fmt.Println("   ", lo.sameLines[len(lo.sameLines)-1])
+			fmt.Fprintln(out, "   ", lo.sameLines[len(lo.sameLines)-1])
 		} // if
 	} // if
 
@@ -1352,7 +1354,7 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
 
 			if mat[i][j] > 0 {
 				orgInfo.vars.Parts[i].showDiff(newInfo.vars.Parts[j])
-				fmt.Println()
+				fmt.Fprintln(out)
 			} //  if
 		} // else
 	} // for i
@@ -1420,12 +1422,16 @@ type Options struct {
 }
 
 var (
+	out      io.Writer = os.Stdout
 	gOptions Options
 )
 
+// ExecWriter prints the difference between two Go files to stdout.
 func Exec(orgFn, newFn string, options Options) {
-	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
+	out = os.Stdout
 	gOptions = options
+
+	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
 
 	orgInfo, err1 := Parse(orgFn, nil)
 	newInfo, err2 := Parse(newFn, nil)
@@ -1437,6 +1443,19 @@ func Exec(orgFn, newFn string, options Options) {
 		DiffLines(orgLines, newLines, "%s")
 		return
 	}
+
+	Diff(orgInfo, newInfo)
+}
+
+// ExecWriter prints the difference between two parsed Go files into w.
+func ExecWriter(w io.Writer, fset0 *token.FileSet, file0 *ast.File, fset1 *token.FileSet, file1 *ast.File) {
+	out = w
+	gOptions = Options{NoColor: true}
+
+	orgInfo := &FileInfo{f: file0, fs: fset0}
+	orgInfo.collect()
+	newInfo := &FileInfo{f: file1, fs: fset1}
+	newInfo.collect()
 
 	Diff(orgInfo, newInfo)
 }
