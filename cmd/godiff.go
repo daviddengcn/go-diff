@@ -2,7 +2,8 @@
 	go-diff is a tool checking semantic difference between source files.
 
 	Currently supported language:
-		Go fully
+
+	- Go (fully)
 
 	If the language is not supported or parsing is failed for either file,
 	a line-to-line comparing is imposed.
@@ -11,12 +12,12 @@ package godiff
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"io"
 	"math"
 	"os"
 	"sort"
@@ -60,7 +61,7 @@ func resetColor() {
 	ct.ResetColor()
 }
 
-func GreedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost func(int) int) (diffMat villa.IntMatrix, cost int, matA, matB []int) {
+func greedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost func(int) int) (diffMat villa.IntMatrix, cost int, matA, matB []int) {
 	matA, matB = make([]int, lenA), make([]int, lenB)
 	villa.IntSlice(matA).Fill(0, lenA, -1)
 	villa.IntSlice(matB).Fill(0, lenB, -1)
@@ -148,23 +149,23 @@ func GreedyMatch(lenA, lenB int, diffF func(iA, iB int) int, delCost, insCost fu
 }
 
 const (
-	DF_NONE = iota
-	DF_TYPE
-	DF_CONST
-	DF_VAR
-	DF_STRUCT
-	DF_INTERFACE
-	DF_FUNC
-	DF_STAR
-	DF_VAR_LINE
-	DF_PAIR
-	DF_NAMES
-	DF_VALUES
-	DF_BLOCK
-	DF_RESULTS
+	df_NONE = iota
+	df_TYPE
+	df_CONST
+	df_VAR
+	df_STRUCT
+	df_INTERFACE
+	df_FUNC
+	df_STAR
+	df_VAR_LINE
+	df_PAIR
+	df_NAMES
+	df_VALUES
+	df_BLOCK
+	df_RESULTS
 )
 
-var TYPE_NAMES []string = []string{
+var typeNames []string = []string{
 	"",
 	"type",
 	"const",
@@ -180,35 +181,35 @@ var TYPE_NAMES []string = []string{
 	"",
 	""}
 
-type DiffFragment interface {
+type diffFragment interface {
 	Type() int
 	Weight() int
 
 	// Max diff = this.Weight() + that.Weight()
-	calcDiff(that DiffFragment) int
+	calcDiff(that diffFragment) int
 
-	showDiff(that DiffFragment)
+	showDiff(that diffFragment)
 	// indent is the leading chars from the second line
 	sourceLines(indent string) []string
 	oneLine() string
 }
 
-type Fragment struct {
+type fragment struct {
 	tp    int
-	Parts []DiffFragment
+	Parts []diffFragment
 }
 
-func (f *Fragment) Type() int {
+func (f *fragment) Type() int {
 	return f.tp
 }
 
-func (f *Fragment) Weight() (w int) {
+func (f *fragment) Weight() (w int) {
 	if f == nil {
 		return 10
 	} // if
 
 	switch f.Type() {
-	case DF_FUNC:
+	case df_FUNC:
 		for i := 0; i < 4; i++ {
 			w += f.Parts[i].Weight()
 		} // for i
@@ -220,7 +221,7 @@ func (f *Fragment) Weight() (w int) {
 	}
 
 	switch f.Type() {
-	case DF_STAR:
+	case df_STAR:
 		w += 50
 	}
 	return w
@@ -243,7 +244,7 @@ func catLines(a []string, sep string, b []string) []string {
  b[1]
   ...
  b[end]
- */
+*/
 func appendLines(a []string, sep string, b ...string) []string {
 	if len(a) > 0 && len(b) > 0 {
 		b[0] = cat(a[len(a)-1], sep, b[0])
@@ -271,7 +272,7 @@ func insertIndent2(indent string, lines []string) []string {
 	return lines
 }
 
-func (f *Fragment) oneLine() string {
+func (f *fragment) oneLine() string {
 	if f == nil {
 		return ""
 	}
@@ -289,37 +290,37 @@ func (f *Fragment) oneLine() string {
 	return lines[0] + " ... " + lines[len(lines)-1] + fmt.Sprintf(" (%d lines)", len(lines))
 }
 
-func (f *Fragment) sourceLines(indent string) (lines []string) {
+func (f *fragment) sourceLines(indent string) (lines []string) {
 	if f == nil {
 		return nil
 	} // if
 
 	switch f.tp {
-	case DF_TYPE:
-		lines = append(lines, TYPE_NAMES[f.tp])
+	case df_TYPE:
+		lines = append(lines, typeNames[f.tp])
 		lines = catLines(lines, " ", f.Parts[0].sourceLines(indent))
 		lines = catLines(lines, " ", f.Parts[1].sourceLines(indent))
-	case DF_CONST:
+	case df_CONST:
 		if len(f.Parts) == 1 {
-			lines = append(lines, TYPE_NAMES[f.tp])
+			lines = append(lines, typeNames[f.tp])
 			lines = catLines(lines, " ", f.Parts[0].sourceLines(indent))
 		} else {
-			lines = append(lines, TYPE_NAMES[f.tp]+"(")
+			lines = append(lines, typeNames[f.tp]+"(")
 			for _, p := range f.Parts {
 				lines = append(lines, catLines([]string{indent + "    "}, "", p.sourceLines(indent+"    "))...)
 			} // p
 			lines = append(lines, indent+")")
 		} // else
-	case DF_VAR:
-		lines = append(lines, TYPE_NAMES[f.tp])
+	case df_VAR:
+		lines = append(lines, typeNames[f.tp])
 		lines = catLines(lines, " ", f.Parts[0].sourceLines(indent+"    "))
-	case DF_VAR_LINE:
+	case df_VAR_LINE:
 		lines = f.Parts[0].sourceLines(indent)
 		lines = catLines(lines, " ", f.Parts[1].sourceLines(indent))
 		lines = catLines(lines, " = ", f.Parts[2].sourceLines(indent))
-	case DF_FUNC:
-		lines = append(lines, TYPE_NAMES[f.tp])
-		if f.Parts[0].(*Fragment) != nil {
+	case df_FUNC:
+		lines = append(lines, typeNames[f.tp])
+		if f.Parts[0].(*fragment) != nil {
 			lines = catLines(catLines(lines, " (", f.Parts[0].sourceLines(indent+"    ")), "", []string{")"}) // recv
 		} // if
 		lines = catLines(lines, " ", f.Parts[1].sourceLines(indent+"    ")) // name
@@ -327,9 +328,9 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
 			f.Parts[2].sourceLines(indent+"    ")), "", []string{")"}) // params
 		lines = catLines(lines, " ", f.Parts[3].sourceLines(indent+"    ")) // returns
 		lines = catLines(lines, " ", f.Parts[4].sourceLines(indent))        // body
-	case DF_RESULTS:
+	case df_RESULTS:
 		if len(f.Parts) > 0 {
-			if len(f.Parts) > 1 || len(f.Parts[0].(*Fragment).Parts[0].(*StringFrag).source) > 0 {
+			if len(f.Parts) > 1 || len(f.Parts[0].(*fragment).Parts[0].(*stringFrag).source) > 0 {
 				lines = append(lines, "(")
 			} // if
 			for i, p := range f.Parts {
@@ -338,21 +339,21 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
 				} // if
 				lines = catLines(lines, "", p.sourceLines(indent+"    "))
 			} // for i, p
-			if len(f.Parts) > 1 || len(f.Parts[0].(*Fragment).Parts[0].(*StringFrag).source) > 0 {
+			if len(f.Parts) > 1 || len(f.Parts[0].(*fragment).Parts[0].(*stringFrag).source) > 0 {
 				lines = catLines(lines, "", []string{")"})
 			} // if
 		} // if
-	case DF_BLOCK:
+	case df_BLOCK:
 		lines = append(lines, "{")
 		for _, p := range f.Parts {
 			lines = append(lines, catLines([]string{indent + "    "}, "", p.sourceLines(indent+"    "))...)
 		} // for p
 		lines = append(lines, indent+"}")
-	case DF_STRUCT, DF_INTERFACE:
+	case df_STRUCT, df_INTERFACE:
 		if len(f.Parts) == 0 {
-			lines = append(lines, TYPE_NAMES[f.tp]+"{}")
+			lines = append(lines, typeNames[f.tp]+"{}")
 		} else {
-			lines = append(lines, TYPE_NAMES[f.tp]+" {")
+			lines = append(lines, typeNames[f.tp]+" {")
 			for _, p := range f.Parts {
 				lns := p.sourceLines(indent + "    ")
 				if len(lns) > 0 {
@@ -362,27 +363,27 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
 			} // for p
 			lines = append(lines, indent+"}")
 		}
-	case DF_STAR:
-		lines = append(lines, TYPE_NAMES[f.tp])
+	case df_STAR:
+		lines = append(lines, typeNames[f.tp])
 		lines = catLines(lines, "", f.Parts[0].sourceLines(indent))
-	case DF_PAIR:
+	case df_PAIR:
 		lines = catLines(f.Parts[0].sourceLines(indent), " ", f.Parts[1].sourceLines(indent))
-	case DF_NAMES:
+	case df_NAMES:
 		s := ""
 		for _, p := range f.Parts {
 			s = cat(s, ", ", p.sourceLines(indent + "    ")[0])
 		} // for p
 		lines = append(lines, s)
-	case DF_VALUES:
+	case df_VALUES:
 		for _, p := range f.Parts {
 			lines = catLines(lines, ", ", p.sourceLines(indent+"    "))
 		} // for p
-	case DF_NONE:
+	case df_NONE:
 		for _, p := range f.Parts {
 			lines = append(lines, p.sourceLines(indent)...)
 		} // for p
 	default:
-		lines = []string{"TYPE: " + TYPE_NAMES[f.Type()]}
+		lines = []string{"TYPE: " + typeNames[f.Type()]}
 		for _, p := range f.Parts {
 			lines = append(lines, p.sourceLines(indent+"    ")...)
 		} // for p
@@ -392,9 +393,9 @@ func (f *Fragment) sourceLines(indent string) (lines []string) {
 	return lines
 }
 
-func (f *Fragment) calcDiff(that DiffFragment) int {
+func (f *fragment) calcDiff(that diffFragment) int {
 	switch g := that.(type) {
-	case *Fragment:
+	case *fragment:
 		if f == nil {
 			if g == nil {
 				return 0
@@ -407,15 +408,15 @@ func (f *Fragment) calcDiff(that DiffFragment) int {
 		} // if
 
 		switch f.Type() {
-		case DF_STAR:
-			if g.Type() == DF_STAR {
+		case df_STAR:
+			if g.Type() == df_STAR {
 				return f.Parts[0].calcDiff(g.Parts[0])
 			} // if
 
 			return f.Parts[0].calcDiff(g) + 50
 		}
 
-		if g.Type() == DF_STAR {
+		if g.Type() == df_STAR {
 			return f.calcDiff(g.Parts[0]) + 50
 		} // if
 
@@ -424,7 +425,7 @@ func (f *Fragment) calcDiff(that DiffFragment) int {
 		} // if
 
 		switch f.Type() {
-		case DF_FUNC:
+		case df_FUNC:
 			res := int(0)
 			for i := 0; i < 4; i++ {
 				res += f.Parts[i].calcDiff(g.Parts[i])
@@ -446,30 +447,30 @@ func (f *Fragment) calcDiff(that DiffFragment) int {
 	return f.Weight() + that.Weight()
 }
 
-func (f *Fragment) showDiff(that DiffFragment) {
-	DiffLines(f.sourceLines(""), that.sourceLines(""), `%s`)
+func (f *fragment) showDiff(that diffFragment) {
+	diffLines(f.sourceLines(""), that.sourceLines(""), `%s`)
 }
 
-type StringFrag struct {
+type stringFrag struct {
 	weight int
 	source string
 }
 
-func newStringFrag(source string, weight int) *StringFrag {
-	return &StringFrag{weight: weight, source: source}
+func newStringFrag(source string, weight int) *stringFrag {
+	return &stringFrag{weight: weight, source: source}
 }
 
-func (sf *StringFrag) Type() int {
-	return DF_NONE
+func (sf *stringFrag) Type() int {
+	return df_NONE
 }
 
-func (sf *StringFrag) Weight() int {
+func (sf *stringFrag) Weight() int {
 	return sf.weight
 }
 
-func (sf *StringFrag) calcDiff(that DiffFragment) int {
+func (sf *stringFrag) calcDiff(that diffFragment) int {
 	switch g := that.(type) {
-	case *StringFrag:
+	case *stringFrag:
 		s1, s2 := strings.TrimSpace(sf.source), strings.TrimSpace(g.source)
 		if len(s1)+len(s2) == 0 {
 			return 0
@@ -481,11 +482,11 @@ func (sf *StringFrag) calcDiff(that DiffFragment) int {
 	return sf.Weight() + that.Weight()
 }
 
-func (sf *StringFrag) showDiff(that DiffFragment) {
-	DiffLines(sf.sourceLines("    "), that.sourceLines("    "), `%s`)
+func (sf *stringFrag) showDiff(that diffFragment) {
+	diffLines(sf.sourceLines("    "), that.sourceLines("    "), `%s`)
 }
 
-func (sf *StringFrag) oneLine() string {
+func (sf *stringFrag) oneLine() string {
 	if sf == nil {
 		return ""
 	} // if
@@ -493,7 +494,7 @@ func (sf *StringFrag) oneLine() string {
 	return sf.source
 }
 
-func (sf *StringFrag) sourceLines(indent string) []string {
+func (sf *stringFrag) sourceLines(indent string) []string {
 	lines := strings.Split(sf.source, "\n")
 	for i := range lines {
 		if i > 0 {
@@ -505,24 +506,24 @@ func (sf *StringFrag) sourceLines(indent string) []string {
 }
 
 const (
-	TD_STRUCT = iota
-	TD_INTERFACE
-	TD_POINTER
-	TD_ONELINE
+	td_STRUCT = iota
+	td_INTERFACE
+	td_POINTER
+	td_ONELINE
 )
 
-func newNameTypes(fs *token.FileSet, fl *ast.FieldList) (dfs []DiffFragment) {
+func newNameTypes(fs *token.FileSet, fl *ast.FieldList) (dfs []diffFragment) {
 	for _, f := range fl.List {
 		if len(f.Names) > 0 {
 			for _, name := range f.Names {
-				dfs = append(dfs, &Fragment{tp: DF_PAIR,
-					Parts: []DiffFragment{newStringFrag(name.String(), 100),
+				dfs = append(dfs, &fragment{tp: df_PAIR,
+					Parts: []diffFragment{newStringFrag(name.String(), 100),
 						newTypeDef(fs, f.Type)}})
 			} // for name
 		} else {
 			// embedding
-			dfs = append(dfs, &Fragment{tp: DF_PAIR,
-				Parts: []DiffFragment{newStringFrag("", 50),
+			dfs = append(dfs, &fragment{tp: df_PAIR,
+				Parts: []diffFragment{newStringFrag("", 50),
 					newTypeDef(fs, f.Type)}})
 		} // else
 	} // for f
@@ -530,49 +531,49 @@ func newNameTypes(fs *token.FileSet, fl *ast.FieldList) (dfs []DiffFragment) {
 	return dfs
 }
 
-func newTypeDef(fs *token.FileSet, def ast.Expr) DiffFragment {
+func newTypeDef(fs *token.FileSet, def ast.Expr) diffFragment {
 	switch d := def.(type) {
 	case *ast.StructType:
-		return &Fragment{tp: DF_STRUCT, Parts: newNameTypes(fs, d.Fields)}
+		return &fragment{tp: df_STRUCT, Parts: newNameTypes(fs, d.Fields)}
 
 	case *ast.InterfaceType:
-		return &Fragment{tp: DF_INTERFACE, Parts: newNameTypes(fs, d.Methods)}
+		return &fragment{tp: df_INTERFACE, Parts: newNameTypes(fs, d.Methods)}
 
 	case *ast.StarExpr:
-		return &Fragment{tp: DF_STAR, Parts: []DiffFragment{newTypeDef(fs, d.X)}}
+		return &fragment{tp: df_STAR, Parts: []diffFragment{newTypeDef(fs, d.X)}}
 	} // switch
 
 	var src bytes.Buffer
 	(&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(&src, fs, def)
-	return &StringFrag{weight: 50, source: src.String()}
+	return &stringFrag{weight: 50, source: src.String()}
 }
 
-func newTypeStmtInfo(fs *token.FileSet, name string, def ast.Expr) *Fragment {
-	var f Fragment
+func newTypeStmtInfo(fs *token.FileSet, name string, def ast.Expr) *fragment {
+	var f fragment
 
-	f.tp = DF_TYPE
-	f.Parts = []DiffFragment{
+	f.tp = df_TYPE
+	f.Parts = []diffFragment{
 		newStringFrag(name, 100),
 		newTypeDef(fs, def)}
 
 	return &f
 }
 
-func newExpDef(fs *token.FileSet, def ast.Expr) DiffFragment {
+func newExpDef(fs *token.FileSet, def ast.Expr) diffFragment {
 	//ast.Print(fs, def)
 	var src bytes.Buffer
 	(&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(&src, fs, def)
-	return &StringFrag{weight: 100, source: src.String()}
+	return &stringFrag{weight: 100, source: src.String()}
 }
 
-func newVarSpecs(fs *token.FileSet, specs []ast.Spec) (dfs []DiffFragment) {
+func newVarSpecs(fs *token.FileSet, specs []ast.Spec) (dfs []diffFragment) {
 	for _, spec := range specs {
-		f := &Fragment{tp: DF_VAR_LINE}
+		f := &fragment{tp: df_VAR_LINE}
 
-		names := &Fragment{tp: DF_NAMES}
+		names := &fragment{tp: df_NAMES}
 		sp := spec.(*ast.ValueSpec)
 		for _, name := range sp.Names {
-			names.Parts = append(names.Parts, &StringFrag{weight: 100,
+			names.Parts = append(names.Parts, &stringFrag{weight: 100,
 				source: fmt.Sprint(name)})
 		}
 		f.Parts = append(f.Parts, names)
@@ -580,10 +581,10 @@ func newVarSpecs(fs *token.FileSet, specs []ast.Spec) (dfs []DiffFragment) {
 		if sp.Type != nil {
 			f.Parts = append(f.Parts, newTypeDef(fs, sp.Type))
 		} else {
-			f.Parts = append(f.Parts, (*Fragment)(nil))
+			f.Parts = append(f.Parts, (*fragment)(nil))
 		} // else
 
-		values := &Fragment{tp: DF_VALUES}
+		values := &fragment{tp: df_VALUES}
 		for _, v := range sp.Values {
 			values.Parts = append(values.Parts, newExpDef(fs, v))
 		} // for v
@@ -728,7 +729,7 @@ func nodeToLines(fs *token.FileSet, node interface{}) (lines []string) {
 			lines = appendLines(lines, "", "{}")
 		} else {
 			lines = appendLines(lines, "", "{")
-	
+
 			for _, el := range nd.Elts {
 				lines = append(lines, insertIndent("    ", nodeToLines(fs, el))...)
 				lines = appendLines(lines, "", ",")
@@ -818,65 +819,65 @@ func blockToLines(fs *token.FileSet, blk *ast.BlockStmt) (lines []string) {
 	return lines
 }
 
-func newBlockDecl(fs *token.FileSet, blk *ast.BlockStmt) (f *Fragment) {
-	f = &Fragment{tp: DF_BLOCK}
+func newBlockDecl(fs *token.FileSet, blk *ast.BlockStmt) (f *fragment) {
+	f = &fragment{tp: df_BLOCK}
 	lines := blockToLines(fs, blk)
 	for _, line := range lines {
-		f.Parts = append(f.Parts, &StringFrag{weight: 100, source: line})
+		f.Parts = append(f.Parts, &stringFrag{weight: 100, source: line})
 	} // for line
 
 	return f
 }
 
-func newFuncDecl(fs *token.FileSet, d *ast.FuncDecl) (f *Fragment) {
-	f = &Fragment{tp: DF_FUNC}
+func newFuncDecl(fs *token.FileSet, d *ast.FuncDecl) (f *fragment) {
+	f = &fragment{tp: df_FUNC}
 
 	// recv
 	if d.Recv != nil {
 		f.Parts = append(f.Parts, newNameTypes(fs, d.Recv)...)
 	} else {
-		f.Parts = append(f.Parts, (*Fragment)(nil))
+		f.Parts = append(f.Parts, (*fragment)(nil))
 	} // else
 
 	// name
-	f.Parts = append(f.Parts, &StringFrag{weight: 200, source: fmt.Sprint(d.Name)})
+	f.Parts = append(f.Parts, &stringFrag{weight: 200, source: fmt.Sprint(d.Name)})
 
 	//  params
 	if d.Type.Params != nil {
-		f.Parts = append(f.Parts, &Fragment{tp: DF_VALUES,
+		f.Parts = append(f.Parts, &fragment{tp: df_VALUES,
 			Parts: newNameTypes(fs, d.Type.Params)})
 	} else {
-		f.Parts = append(f.Parts, (*Fragment)(nil))
+		f.Parts = append(f.Parts, (*fragment)(nil))
 	} // else
 
 	// Results
 	if d.Type.Results != nil {
-		f.Parts = append(f.Parts, &Fragment{tp: DF_RESULTS, Parts: newNameTypes(fs, d.Type.Results)})
+		f.Parts = append(f.Parts, &fragment{tp: df_RESULTS, Parts: newNameTypes(fs, d.Type.Results)})
 	} else {
-		f.Parts = append(f.Parts, (*Fragment)(nil))
+		f.Parts = append(f.Parts, (*fragment)(nil))
 	} // else
 
 	// body
 	if d.Body != nil {
 		f.Parts = append(f.Parts, newBlockDecl(fs, d.Body))
 	} else {
-		f.Parts = append(f.Parts, (*Fragment)(nil))
+		f.Parts = append(f.Parts, (*fragment)(nil))
 	} // else
 	return f
 }
 
-type FileInfo struct {
+type fileInfo struct {
 	f     *ast.File
 	fs    *token.FileSet
-	types *Fragment
-	vars  *Fragment
-	funcs *Fragment
+	types *fragment
+	vars  *fragment
+	funcs *fragment
 }
 
-func (info *FileInfo) collect() {
-	info.types = &Fragment{}
-	info.vars = &Fragment{}
-	info.funcs = &Fragment{}
+func (info *fileInfo) collect() {
+	info.types = &fragment{}
+	info.vars = &fragment{}
+	info.funcs = &fragment{}
 
 	for _, decl := range info.f.Decls {
 		switch d := decl.(type) {
@@ -892,19 +893,19 @@ func (info *FileInfo) collect() {
 			case token.CONST:
 				// fmt.Println(d)
 				//ast.Print(info.fs, d)
-				v := &Fragment{tp: DF_CONST, Parts: newVarSpecs(info.fs, d.Specs)}
+				v := &fragment{tp: df_CONST, Parts: newVarSpecs(info.fs, d.Specs)}
 				info.vars.Parts = append(info.vars.Parts, v)
 			case token.VAR:
 				//ast.Print(info.fs, d)
 				vss := newVarSpecs(info.fs, d.Specs)
 				for _, vs := range vss {
-					info.vars.Parts = append(info.vars.Parts, &Fragment{tp: DF_VAR, Parts: []DiffFragment{vs}})
+					info.vars.Parts = append(info.vars.Parts, &fragment{tp: df_VAR, Parts: []diffFragment{vs}})
 				} // for spec
 			case token.IMPORT:
 				// ignore
 			default:
 				// Unknow
-				fmt.Println(d)
+				fmt.Fprintln(gOut, d)
 			} // switch d.tok
 		case *ast.FuncDecl:
 			//fmt.Printf("%#v\n", d)
@@ -917,23 +918,23 @@ func (info *FileInfo) collect() {
 	} // for decl
 }
 
-func Parse(fn string, src interface{}) (*FileInfo, error) {
+func parse(fn string, src interface{}) (*fileInfo, error) {
 	if fn == "/dev/null" {
-		return &FileInfo{
-			f: &ast.File {},
-			types: &Fragment{},
-			vars: &Fragment{},
-			funcs: &Fragment{},
+		return &fileInfo{
+			f:     &ast.File{},
+			types: &fragment{},
+			vars:  &fragment{},
+			funcs: &fragment{},
 		}, nil
 	}
-	
+
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, fn, src, 0)
 	if err != nil {
 		return nil, err
 	} // if
 
-	info := &FileInfo{f: f, fs: fset}
+	info := &fileInfo{f: f, fs: fset}
 	info.collect()
 
 	return info, nil
@@ -950,19 +951,19 @@ const (
 	fld_COLOR = ct.Yellow
 )
 
-func ShowDelWholeLine(line string) {
+func showDelWholeLine(line string) {
 	changeColor(del_COLOR, false, ct.None, false)
-	fmt.Println("===", line)
+	fmt.Fprintln(gOut, "===", line)
 	resetColor()
 }
-func ShowDelLine(line string) {
+func showDelLine(line string) {
 	changeColor(del_COLOR, false, ct.None, false)
-	fmt.Println("---", line)
+	fmt.Fprintln(gOut, "---", line)
 	resetColor()
 }
-func ShowColorDelLine(line, lcs string) {
+func showColorDelLine(line, lcs string) {
 	changeColor(del_COLOR, false, ct.None, false)
-	fmt.Print("--- ")
+	fmt.Fprint(gOut, "--- ")
 	lcsr := []rune(lcs)
 	for _, c := range line {
 		if len(lcsr) > 0 && lcsr[0] == c {
@@ -971,39 +972,39 @@ func ShowColorDelLine(line, lcs string) {
 		} else {
 			changeColor(del_COLOR, false, ct.None, false)
 		} // else
-		fmt.Printf("%c", c)
+		fmt.Fprintf(gOut, "%c", c)
 	} // for c
 
 	resetColor()
-	fmt.Println()
+	fmt.Fprintln(gOut)
 }
 
-func ShowDelLines(lines []string, gapLines int) {
+func showDelLines(lines []string, gapLines int) {
 	if len(lines) <= gapLines*2+1 {
 		for _, line := range lines {
-			ShowDelLine(line)
+			showDelLine(line)
 		} // for line
 		return
 	} // if
 
 	for i, line := range lines {
 		if i < gapLines || i >= len(lines)-gapLines {
-			ShowDelLine(line)
+			showDelLine(line)
 		} // if
 		if i == gapLines {
-			ShowDelWholeLine(fmt.Sprintf("    ... (%d lines)", len(lines)-gapLines*2))
+			showDelWholeLine(fmt.Sprintf("    ... (%d lines)", len(lines)-gapLines*2))
 		} // if
 	} // for i
 }
 
-func ShowInsLine(line string) {
+func showInsLine(line string) {
 	changeColor(ins_COLOR, false, ct.None, false)
-	fmt.Println("+++", line)
+	fmt.Fprintln(gOut, "+++", line)
 	resetColor()
 }
-func ShowColorInsLine(line, lcs string) {
+func showColorInsLine(line, lcs string) {
 	changeColor(ins_COLOR, false, ct.None, false)
-	fmt.Print("+++ ")
+	fmt.Fprint(gOut, "+++ ")
 	lcsr := []rune(lcs)
 	for _, c := range line {
 		if len(lcsr) > 0 && lcsr[0] == c {
@@ -1012,40 +1013,40 @@ func ShowColorInsLine(line, lcs string) {
 		} else {
 			changeColor(ins_COLOR, false, ct.None, false)
 		} // else
-		fmt.Printf("%c", c)
+		fmt.Fprintf(gOut, "%c", c)
 	} // for c
 
 	resetColor()
-	fmt.Println()
+	fmt.Fprintln(gOut)
 }
 
-func ShowInsWholeLine(line string) {
+func showInsWholeLine(line string) {
 	changeColor(ins_COLOR, false, ct.None, false)
-	fmt.Println("###", line)
+	fmt.Fprintln(gOut, "###", line)
 	resetColor()
 }
 
-func ShowInsLines(lines []string, gapLines int) {
+func showInsLines(lines []string, gapLines int) {
 	if len(lines) <= gapLines*2+1 {
 		for _, line := range lines {
-			ShowInsLine(line)
+			showInsLine(line)
 		} // for line
 		return
 	} // if
 
 	for i, line := range lines {
 		if i < gapLines || i >= len(lines)-gapLines {
-			ShowInsLine(line)
+			showInsLine(line)
 		} // if
 		if i == gapLines {
-			ShowInsWholeLine(fmt.Sprintf("    ... (%d lines)", len(lines)-gapLines*2))
+			showInsWholeLine(fmt.Sprintf("    ... (%d lines)", len(lines)-gapLines*2))
 		} // if
 	} // for i
 }
 
-func ShowDelTokens(del []string, mat []int, ins []string) {
+func showDelTokens(del []string, mat []int, ins []string) {
 	changeColor(del_COLOR, false, ct.None, false)
-	fmt.Print("--- ")
+	fmt.Fprint(gOut, "--- ")
 
 	for i, tk := range del {
 		if mat[i] < 0 || tk != ins[mat[i]] {
@@ -1054,16 +1055,16 @@ func ShowDelTokens(del []string, mat []int, ins []string) {
 			changeColor(mat_COLOR, false, ct.None, false)
 		}
 
-		fmt.Print(tk)
+		fmt.Fprint(gOut, tk)
 	} // for i
 
 	resetColor()
-	fmt.Println()
+	fmt.Fprintln(gOut)
 }
 
-func ShowInsTokens(ins []string, mat []int, del []string) {
+func showInsTokens(ins []string, mat []int, del []string) {
 	changeColor(ins_COLOR, false, ct.None, false)
-	fmt.Print("+++ ")
+	fmt.Fprint(gOut, "+++ ")
 
 	for i, tk := range ins {
 		if mat[i] < 0 || tk != del[mat[i]] {
@@ -1072,22 +1073,22 @@ func ShowInsTokens(ins []string, mat []int, del []string) {
 			resetColor()
 		} // else
 
-		fmt.Print(tk)
+		fmt.Fprint(gOut, tk)
 	} // for i
 
 	resetColor()
-	fmt.Println()
+	fmt.Fprintln(gOut)
 }
 
-func ShowDiffLine(del, ins string) {
+func showDiffLine(del, ins string) {
 	delT, insT := tm.LineToTokens(del), tm.LineToTokens(ins)
 	matA, matB := tm.MatchTokens(delT, insT)
 
-	ShowDelTokens(delT, matA, insT)
-	ShowInsTokens(insT, matB, delT)
+	showDelTokens(delT, matA, insT)
+	showInsTokens(insT, matB, delT)
 }
 
-func DiffLineSet(orgLines, newLines []string, format string) {
+func diffLineSet(orgLines, newLines []string, format string) {
 	sort.Strings(orgLines)
 	sort.Strings(newLines)
 
@@ -1098,14 +1099,14 @@ func DiffLineSet(orgLines, newLines []string, format string) {
 	for i, j := 0, 0; i < len(orgLines) || j < len(newLines); {
 		switch {
 		case j >= len(newLines) || i < len(orgLines) && matA[i] < 0:
-			ShowDelLine(fmt.Sprintf(format, orgLines[i]))
+			showDelLine(fmt.Sprintf(format, orgLines[i]))
 			i++
 		case i >= len(orgLines) || j < len(newLines) && matB[j] < 0:
-			ShowInsLine(fmt.Sprintf(format, newLines[j]))
+			showInsLine(fmt.Sprintf(format, newLines[j]))
 			j++
 		default:
 			if strings.TrimSpace(orgLines[i]) != strings.TrimSpace(newLines[j]) {
-				ShowDiffLine(fmt.Sprintf(format, orgLines[i]), fmt.Sprintf(format, newLines[j]))
+				showDiffLine(fmt.Sprintf(format, orgLines[i]), fmt.Sprintf(format, newLines[j]))
 			} // if
 			i++
 			j++
@@ -1113,7 +1114,7 @@ func DiffLineSet(orgLines, newLines []string, format string) {
 	} // for i, j
 }
 
-type LineOutputer interface {
+type lineOutputer interface {
 	outputIns(line string)
 	outputDel(line string)
 	outputSame(line string)
@@ -1127,17 +1128,17 @@ type lineOutput struct {
 
 func (lo *lineOutput) outputIns(line string) {
 	lo.end()
-	ShowInsLine(line)
+	showInsLine(line)
 }
 
 func (lo *lineOutput) outputDel(line string) {
 	lo.end()
-	ShowDelLine(line)
+	showDelLine(line)
 }
 
 func (lo *lineOutput) outputChange(del, ins string) {
 	lo.end()
-	ShowDiffLine(del, ins)
+	showDiffLine(del, ins)
 }
 
 func (lo *lineOutput) outputSame(line string) {
@@ -1146,17 +1147,17 @@ func (lo *lineOutput) outputSame(line string) {
 
 func (lo *lineOutput) end() {
 	if len(lo.sameLines) > 0 {
-		fmt.Println("   ", lo.sameLines[0])
+		fmt.Fprintln(gOut, "   ", lo.sameLines[0])
 		if len(lo.sameLines) == 3 {
-			fmt.Println("   ", lo.sameLines[1])
+			fmt.Fprintln(gOut, "   ", lo.sameLines[1])
 		} // if
 		if len(lo.sameLines) > 3 {
 			changeColor(fld_COLOR, false, ct.None, false)
-			fmt.Printf("        ... (%d lines)\n", len(lo.sameLines)-2)
+			fmt.Fprintf(gOut, "        ... (%d lines)\n", len(lo.sameLines)-2)
 			resetColor()
 		} // if
 		if len(lo.sameLines) > 1 {
-			fmt.Println("   ", lo.sameLines[len(lo.sameLines)-1])
+			fmt.Fprintln(gOut, "   ", lo.sameLines[len(lo.sameLines)-1])
 		} // if
 	} // if
 
@@ -1177,7 +1178,7 @@ func offsetHeadTails(orgLines, newLines []string) (start, orgEnd, newEnd int) {
 	return
 }
 
-func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) int {
+func diffLinesTo(orgLines, newLines []string, format string, lo lineOutputer) int {
 	if len(orgLines)+len(newLines) == 0 {
 		return 0
 	}
@@ -1259,25 +1260,25 @@ func DiffLinesTo(orgLines, newLines []string, format string, lo LineOutputer) in
 /*
   Returns the number of operation lines.
 */
-func DiffLines(orgLines, newLines []string, format string) int {
-	return DiffLinesTo(orgLines, newLines, format, &lineOutput{})
+func diffLines(orgLines, newLines []string, format string) int {
+	return diffLinesTo(orgLines, newLines, format, &lineOutput{})
 }
 
 /*
    Diff Package
 */
-func DiffPackage(orgInfo, newInfo *FileInfo) {
+func diffPackage(orgInfo, newInfo *fileInfo) {
 	orgName := orgInfo.f.Name.String()
 	newName := newInfo.f.Name.String()
 	if orgName != newName {
-		ShowDiffLine("package "+orgName, "package "+newName)
+		showDiffLine("package "+orgName, "package "+newName)
 	} //  if
 }
 
 /*
    Diff Imports
 */
-func extractImports(info *FileInfo) []string {
+func extractImports(info *fileInfo) []string {
 	imports := make([]string, 0, len(info.f.Imports))
 	for _, imp := range info.f.Imports {
 		imports = append(imports, imp.Path.Value)
@@ -1286,18 +1287,18 @@ func extractImports(info *FileInfo) []string {
 	return imports
 }
 
-func DiffImports(orgInfo, newInfo *FileInfo) {
+func diffImports(orgInfo, newInfo *fileInfo) {
 	orgImports := extractImports(orgInfo)
 	newImports := extractImports(newInfo)
 
-	DiffLineSet(orgImports, newImports, `import %s`)
+	diffLineSet(orgImports, newImports, `import %s`)
 }
 
 /*
    Diff Types
 */
-func DiffTypes(orgInfo, newInfo *FileInfo) {
-	mat, _, matA, matB := GreedyMatch(len(orgInfo.types.Parts), len(newInfo.types.Parts), func(iA, iB int) int {
+func diffTypes(orgInfo, newInfo *fileInfo) {
+	mat, _, matA, matB := greedyMatch(len(orgInfo.types.Parts), len(newInfo.types.Parts), func(iA, iB int) int {
 		return orgInfo.types.Parts[iA].calcDiff(newInfo.types.Parts[iB]) * 3 / 2
 	}, func(iA int) int {
 		return orgInfo.types.Parts[iA].Weight()
@@ -1309,11 +1310,11 @@ func DiffTypes(orgInfo, newInfo *FileInfo) {
 	for i := range matA {
 		j := matA[i]
 		if j < 0 {
-			ShowDelWholeLine(orgInfo.types.Parts[i].oneLine())
+			showDelWholeLine(orgInfo.types.Parts[i].oneLine())
 		} else {
 			for ; j0 < j; j0++ {
 				if matB[j0] < 0 {
-					ShowInsWholeLine(newInfo.types.Parts[j0].oneLine())
+					showInsWholeLine(newInfo.types.Parts[j0].oneLine())
 				}
 			}
 
@@ -1325,13 +1326,13 @@ func DiffTypes(orgInfo, newInfo *FileInfo) {
 
 	for ; j0 < len(matB); j0++ {
 		if matB[j0] < 0 {
-			ShowInsWholeLine(newInfo.types.Parts[j0].oneLine())
+			showInsWholeLine(newInfo.types.Parts[j0].oneLine())
 		}
 	}
 }
 
-func DiffVars(orgInfo, newInfo *FileInfo) {
-	mat, _, matA, matB := GreedyMatch(len(orgInfo.vars.Parts), len(newInfo.vars.Parts), func(iA, iB int) int {
+func diffVars(orgInfo, newInfo *fileInfo) {
+	mat, _, matA, matB := greedyMatch(len(orgInfo.vars.Parts), len(newInfo.vars.Parts), func(iA, iB int) int {
 		return orgInfo.vars.Parts[iA].calcDiff(newInfo.vars.Parts[iB]) * 3 / 2
 	}, func(iA int) int {
 		return orgInfo.vars.Parts[iA].Weight()
@@ -1343,31 +1344,31 @@ func DiffVars(orgInfo, newInfo *FileInfo) {
 	for i := range matA {
 		j := matA[i]
 		if j < 0 {
-			ShowDelLines(orgInfo.vars.Parts[i].sourceLines(""), 2)
+			showDelLines(orgInfo.vars.Parts[i].sourceLines(""), 2)
 			// fmt.Println()
 		} else {
 			for ; j0 < j; j0++ {
 				if matB[j0] < 0 {
-					ShowInsLines(newInfo.vars.Parts[j0].sourceLines(""), 2)
+					showInsLines(newInfo.vars.Parts[j0].sourceLines(""), 2)
 				} // if
 			}
 
 			if mat[i][j] > 0 {
 				orgInfo.vars.Parts[i].showDiff(newInfo.vars.Parts[j])
-				fmt.Println()
+				fmt.Fprintln(gOut)
 			} //  if
 		} // else
 	} // for i
 
 	for ; j0 < len(matB); j0++ {
 		if matB[j0] < 0 {
-			ShowInsLines(newInfo.vars.Parts[j0].sourceLines(""), 2)
+			showInsLines(newInfo.vars.Parts[j0].sourceLines(""), 2)
 		} // if
 	}
 }
 
-func DiffFuncs(orgInfo, newInfo *FileInfo) {
-	mat, _, matA, matB := GreedyMatch(len(orgInfo.funcs.Parts), len(newInfo.funcs.Parts), func(iA, iB int) int {
+func diffFuncs(orgInfo, newInfo *fileInfo) {
+	mat, _, matA, matB := greedyMatch(len(orgInfo.funcs.Parts), len(newInfo.funcs.Parts), func(iA, iB int) int {
 		return orgInfo.funcs.Parts[iA].calcDiff(newInfo.funcs.Parts[iB]) * 3 / 2
 	}, func(iA int) int {
 		return orgInfo.funcs.Parts[iA].Weight()
@@ -1379,11 +1380,11 @@ func DiffFuncs(orgInfo, newInfo *FileInfo) {
 	for i := range matA {
 		j := matA[i]
 		if j < 0 {
-			ShowDelWholeLine(orgInfo.funcs.Parts[i].oneLine())
+			showDelWholeLine(orgInfo.funcs.Parts[i].oneLine())
 		} else {
 			for ; j0 < j; j0++ {
 				if matB[j0] < 0 {
-					ShowInsWholeLine(newInfo.funcs.Parts[j0].oneLine())
+					showInsWholeLine(newInfo.funcs.Parts[j0].oneLine())
 				}
 			}
 			if mat[i][j] > 0 {
@@ -1394,17 +1395,17 @@ func DiffFuncs(orgInfo, newInfo *FileInfo) {
 
 	for ; j0 < len(matB); j0++ {
 		if matB[j0] < 0 {
-			ShowInsWholeLine(newInfo.funcs.Parts[j0].oneLine())
+			showInsWholeLine(newInfo.funcs.Parts[j0].oneLine())
 		}
 	}
 }
 
-func Diff(orgInfo, newInfo *FileInfo) {
-	DiffPackage(orgInfo, newInfo)
-	DiffImports(orgInfo, newInfo)
-	DiffTypes(orgInfo, newInfo)
-	DiffVars(orgInfo, newInfo)
-	DiffFuncs(orgInfo, newInfo)
+func diff(orgInfo, newInfo *fileInfo) {
+	diffPackage(orgInfo, newInfo)
+	diffImports(orgInfo, newInfo)
+	diffTypes(orgInfo, newInfo)
+	diffVars(orgInfo, newInfo)
+	diffFuncs(orgInfo, newInfo)
 }
 
 func readLines(fn villa.Path) []string {
@@ -1417,35 +1418,46 @@ func readLines(fn villa.Path) []string {
 	return strings.Split(string(bts), "\n")
 }
 
+// Options specifies options for processing files.
 type Options struct {
-	NoColor bool
+	NoColor bool // Turn off the colors when printing.
 }
 
 var (
+	gOut     io.Writer
 	gOptions Options
 )
 
-func init() {
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "go-diff [<options>] <org-filename> <new-filename>\n")
-		flag.PrintDefaults()
-	}
-}
-
+// Exec prints the difference between two Go files to stdout. Not thread-safe.
 func Exec(orgFn, newFn string, options Options) {
-	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
+	gOut = os.Stdout
 	gOptions = options
-	
-	orgInfo, err1 := Parse(orgFn, nil)
-	newInfo, err2 := Parse(newFn, nil)
+
+	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
+
+	orgInfo, err1 := parse(orgFn, nil)
+	newInfo, err2 := parse(newFn, nil)
 
 	if err1 != nil || err2 != nil {
 		orgLines := readLines(villa.Path(orgFn))
 		newLines := readLines(villa.Path(newFn))
 
-		DiffLines(orgLines, newLines, "%s")
+		diffLines(orgLines, newLines, "%s")
 		return
 	}
 
-	Diff(orgInfo, newInfo)
+	diff(orgInfo, newInfo)
+}
+
+// ExecWriter prints the difference between two parsed Go files into w. Not thread-safe.
+func ExecWriter(w io.Writer, fset0 *token.FileSet, file0 *ast.File, fset1 *token.FileSet, file1 *ast.File, options Options) {
+	gOut = w
+	gOptions = options
+
+	orgInfo := &fileInfo{f: file0, fs: fset0}
+	orgInfo.collect()
+	newInfo := &fileInfo{f: file1, fs: fset1}
+	newInfo.collect()
+
+	diff(orgInfo, newInfo)
 }
