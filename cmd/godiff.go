@@ -27,6 +27,7 @@ import (
 	"github.com/daviddengcn/go-colortext"
 	"github.com/daviddengcn/go-diff/tm"
 	"github.com/daviddengcn/go-villa"
+	"github.com/golangplus/math"
 )
 
 func cat(a, sep, b string) string {
@@ -35,14 +36,6 @@ func cat(a, sep, b string) string {
 	} // if
 
 	return a + b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	} // if
-
-	return b
 }
 
 func changeColor(fg ct.Color, fgBright bool, bg ct.Color, bgBright bool) {
@@ -476,7 +469,7 @@ func (sf *stringFrag) calcDiff(that diffFragment) int {
 			return 0
 		} // if
 		wt := sf.weight + g.weight
-		return ed.String(s1, s2) * wt / max(len(s1), len(s2))
+		return ed.String(s1, s2) * wt / mathp.MaxI(len(s1), len(s2))
 	} // switch
 
 	return sf.Weight() + that.Weight()
@@ -1220,9 +1213,9 @@ func diffLinesTo(orgLines, newLines []string, format string, lo lineOutputer) in
 		// Even a small change, both lines will be shown, so add a 10% penalty on that.
 		return (dist*9+mx)/10 + 1
 	}, func(iA int) int {
-		return max(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
+		return mathp.MaxI(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
 	}, func(iB int) int {
-		return max(1, len(strings.TrimSpace(newLines[iB+start]))*100)
+		return mathp.MaxI(1, len(strings.TrimSpace(newLines[iB+start]))*100)
 	})
 
 	cnt := 0

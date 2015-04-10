@@ -1,18 +1,10 @@
 package tm
 
 import (
-	//	"fmt"
 	"github.com/daviddengcn/go-algs/ed"
 	"github.com/daviddengcn/go-villa"
+	"github.com/golangplus/math"
 )
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	} // if
-
-	return b
-}
 
 const (
 	rune_SINGLE = iota
@@ -304,7 +296,7 @@ func DiffOfStrings(a, b string, mx int) int {
 	if a == b {
 		return 0
 	} // if
-	return ed.String(a, b) * mx / max(len(a), len(b))
+	return ed.String(a, b) * mx / mathp.MaxI(len(a), len(b))
 }
 
 var key_WORDS villa.StrSet = villa.NewStrSet(
