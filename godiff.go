@@ -12,14 +12,14 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/daviddengcn/go-diff/cmd"
+	"github.com/golangplus/fmt"
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: go-diff [options] org-filename new-filename\n")
+	fmtp.Eprintfln("usage: go-diff [options] org-filename new-filename")
 	flag.PrintDefaults()
 	os.Exit(2)
 }

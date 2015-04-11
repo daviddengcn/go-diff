@@ -27,6 +27,7 @@ import (
 	"github.com/daviddengcn/go-colortext"
 	"github.com/daviddengcn/go-diff/tm"
 	"github.com/daviddengcn/go-villa"
+	"github.com/golangplus/fmt"
 	"github.com/golangplus/math"
 )
 
@@ -893,7 +894,7 @@ func (info *fileInfo) collect() {
 				vss := newVarSpecs(info.fs, d.Specs)
 				for _, vs := range vss {
 					info.vars.Parts = append(info.vars.Parts, &fragment{tp: df_VAR, Parts: []diffFragment{vs}})
-				} // for spec
+				}
 			case token.IMPORT:
 				// ignore
 			default:
@@ -901,7 +902,6 @@ func (info *fileInfo) collect() {
 				fmt.Fprintln(gOut, d)
 			} // switch d.tok
 		case *ast.FuncDecl:
-			//fmt.Printf("%#v\n", d)
 			fd := newFuncDecl(info.fs, d)
 			info.funcs.Parts = append(info.funcs.Parts, fd)
 			//ast.Print(info.fs, d)
@@ -1146,7 +1146,7 @@ func (lo *lineOutput) end() {
 		} // if
 		if len(lo.sameLines) > 3 {
 			changeColor(fld_COLOR, false, ct.None, false)
-			fmt.Fprintf(gOut, "        ... (%d lines)\n", len(lo.sameLines)-2)
+			fmtp.Fprintfln(gOut, "        ... (%d lines)", len(lo.sameLines)-2)
 			resetColor()
 		} // if
 		if len(lo.sameLines) > 1 {
@@ -1426,7 +1426,7 @@ func Exec(orgFn, newFn string, options Options) {
 	gOut = os.Stdout
 	gOptions = options
 
-	fmt.Printf("Difference between %s and %s ...\n", orgFn, newFn)
+	fmtp.Printfln("Difference between %s and %s ...", orgFn, newFn)
 
 	orgInfo, err1 := parse(orgFn, nil)
 	newInfo, err2 := parse(newFn, nil)
