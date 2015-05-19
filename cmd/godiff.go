@@ -1210,8 +1210,8 @@ func diffLinesTo(orgLines, newLines []string, format string, lo lineOutputer) in
 			// When sa and sb has 1/3 in common, convertion const is equal to del+ins const
 			dist = tm.CalcDiffOfSourceLine(sa, sb, mx)
 		}
-		// Even a small change, both lines will be shown, so add a 10% penalty on that.
-		return (dist*9+mx)/10 + 1
+		// Even a small change, both lines will be shown, so add a 20% penalty on that.
+		return (dist*4+mx)/5 + 1
 	}, func(iA int) int {
 		return mathp.MaxI(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
 	}, func(iB int) int {
