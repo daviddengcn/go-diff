@@ -54,11 +54,11 @@ func LineToTokens(line string) (tokens []string) {
 		tp := runeType(c)
 		if newToken(lastTp, tp) {
 			tokens = append(tokens, "")
-		} // if
+		}
 		tokens[len(tokens)-1] = tokens[len(tokens)-1] + string(c)
 
 		lastTp = tp
-	} // for c
+	}
 
 	return tokens
 }
