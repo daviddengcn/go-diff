@@ -1199,7 +1199,7 @@ func diffLinesTo(orgLines, newLines []string, format string, lo lineOutputer) in
 
 		posCost := 0
 		if isBlockStart(sa) {
-			posCost += (len(newLines) - iB - 1) / 5
+			posCost += (newEnd - start - 1 - iB) * 10 / (newEnd - start)
 		}
 
 		if rawEqual {
