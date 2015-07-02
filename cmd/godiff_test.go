@@ -77,7 +77,7 @@ defg`, "\n")
 
 	t.Logf("Diff: %s", string(buf))
 
-	goassert.LinesEqual(t, "diff", strings.Split(string(buf), "\n"),
+	assert.StringEqual(t, "diff", strings.Split(string(buf), "\n"),
 		strings.Split(`    abc
 +++ {
 +++   gogogo
