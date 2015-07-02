@@ -1171,6 +1171,10 @@ func offsetHeadTails(orgLines, newLines []string) (start, orgEnd, newEnd int) {
 	return
 }
 
+func isBlockStart(s string) bool {
+	return strings.HasPrefix(s, "{") || strings.HasPrefix(s, "/*")
+}
+
 func diffLinesTo(orgLines, newLines []string, format string, lo lineOutputer) int {
 	if len(orgLines)+len(newLines) == 0 {
 		return 0
@@ -1190,12 +1194,19 @@ func diffLinesTo(orgLines, newLines []string, format string, lo lineOutputer) in
 
 	_, matA, matB := ed.EditDistanceFFull(orgEnd-start, newEnd-start, func(iA, iB int) int {
 		sa, sb := orgLines[iA+start], newLines[iB+start]
-		if sa == sb {
-			return 0
-		}
+		rawEqual := sa == sb
 		sa, sb = strings.TrimSpace(sa), strings.TrimSpace(sb)
+
+		posCost := 0
+		if isBlockStart(sa) {
+			posCost += (newEnd - start - 1 - iB) * 10 / (newEnd - start)
+		}
+
+		if rawEqual {
+			return posCost
+		}
 		if sa == sb {
-			return 1
+			return posCost + 1
 		}
 
 		mx := (len(sa) + len(sb)) * 150
@@ -1211,7 +1222,7 @@ func diffLinesTo(orgLines, newLines []string, format string, lo lineOutputer) in
 			dist = tm.CalcDiffOfSourceLine(sa, sb, mx)
 		}
 		// Even a small change, both lines will be shown, so add a 20% penalty on that.
-		return (dist*4+mx)/5 + 1
+		return (dist*4+mx)/5 + 1 + posCost
 	}, func(iA int) int {
 		return mathp.MaxI(1, len(strings.TrimSpace(orgLines[iA+start]))*100)
 	}, func(iB int) int {

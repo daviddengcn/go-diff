@@ -55,3 +55,35 @@ This a line with the word def different only`, "\n")
 +++ This a line with the word def different only
 `)
 }
+
+func TestDiffLines_2(t *testing.T) {
+	var buf bytesp.ByteSlice
+	gOut = &buf
+
+	src := strings.Split(`abc
+{
+  hello
+}
+defg`, "\n")
+	dst := strings.Split(`abc
+{
+  gogogo
+}
+{
+  hello
+}
+defg`, "\n")
+	diffLines(src, dst, "%s")
+
+	t.Logf("Diff: %s", string(buf))
+
+	goassert.LinesEqual(t, "diff", strings.Split(string(buf), "\n"),
+		strings.Split(`    abc
++++ {
++++   gogogo
++++ }
+    {
+        ... (2 lines)
+    defg
+`, "\n"))
+}
