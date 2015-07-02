@@ -6,8 +6,6 @@ import (
 
 	"github.com/golangplus/bytes"
 	"github.com/golangplus/testing/assert"
-
-	goassert "github.com/daviddengcn/go-assert"
 )
 
 func TestNodeToLines_Literal(t *testing.T) {
@@ -27,7 +25,7 @@ func main() {
 	}
 
 	lines := info.funcs.sourceLines("")
-	goassert.LinesEqual(t, "lines", lines, strings.Split(
+	assert.StringEqual(t, "lines", lines, strings.Split(
 		`func main() {
     a := Da{
         A: 10,
