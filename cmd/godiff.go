@@ -34,7 +34,7 @@ import (
 func cat(a, sep, b string) string {
 	if len(a) > 0 && len(b) > 0 {
 		return a + sep + b
-	} // if
+	}
 
 	return a + b
 }

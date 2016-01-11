@@ -35,7 +35,7 @@ func main() {
 }
 
 func TestDiffLines_1(t *testing.T) {
-	var buf bytesp.ByteSlice
+	var buf bytesp.Slice
 	gOut = &buf
 
 	src := strings.Split(`This a line with the word abc different only
@@ -57,7 +57,7 @@ This a line with the word def different only`, "\n")
 }
 
 func TestDiffLines_2(t *testing.T) {
-	var buf bytesp.ByteSlice
+	var buf bytesp.Slice
 	gOut = &buf
 
 	src := strings.Split(`abc

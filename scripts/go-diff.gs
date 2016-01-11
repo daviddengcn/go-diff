@@ -1,4 +1,4 @@
-#!/bin/gosl
+#!/usr/bin/env gosl
 # gosl: https://github.com/daviddengcn/gosl
 
 import godiff "github.com/daviddengcn/go-diff/cmd"
